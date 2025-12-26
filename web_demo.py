@@ -17,6 +17,7 @@ class StereoVisionDemo:
     def __init__(self):
         # 创建示例双目相机参数
         self.create_sample_stereo_params()
+        self.last_results = None
 
     def create_sample_stereo_params(self):
         """创建示例双目相机参数"""
@@ -124,6 +125,17 @@ class StereoVisionDemo:
         img_str = base64.b64encode(buffer).decode()
         return f"data:image/png;base64,{img_str}"
 
+    def update_last_results(self, results):
+        """缓存最新处理结果"""
+        self.last_results = results
+
+    def get_or_create_results(self):
+        """获取最新结果，没有则生成示例图像结果"""
+        if self.last_results is None:
+            left_img, right_img = self.create_sample_stereo_images()
+            self.last_results = self.process_stereo_images(left_img, right_img)
+        return self.last_results
+
 
 # 创建全局演示实例
 demo = StereoVisionDemo()
@@ -143,6 +155,7 @@ def process():
 
         # 处理图像
         results = demo.process_stereo_images(left_img, right_img)
+        demo.update_last_results(results)
 
         # 转换为base64
         response = {}
@@ -163,6 +176,51 @@ def process():
         })
 
 
+@app.route('/upload_process', methods=['POST'])
+def upload_process():
+    """处理上传的双目图像"""
+    try:
+        left_file = request.files.get('left_image')
+        right_file = request.files.get('right_image')
+
+        if not left_file or not right_file:
+            return jsonify({
+                'success': False,
+                'message': '请同时上传左图和右图'
+            })
+
+        left_img = decode_uploaded_image(left_file)
+        right_img = decode_uploaded_image(right_file)
+
+        if left_img is None or right_img is None:
+            return jsonify({
+                'success': False,
+                'message': '上传的图像无法解析'
+            })
+
+        left_img, right_img = resize_stereo_pair(left_img, right_img, demo.camera_config["size"])
+
+        results = demo.process_stereo_images(left_img, right_img)
+        demo.update_last_results(results)
+
+        response = {}
+        for key, img in results.items():
+            if key not in ['disparity_raw', 'depth_raw']:
+                response[key] = demo.image_to_base64(img)
+
+        return jsonify({
+            'success': True,
+            'images': response,
+            'message': '上传图像处理完成！'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'处理失败: {str(e)}'
+        })
+
+
 @app.route('/get_depth', methods=['POST'])
 def get_depth():
     """获取指定像素点的深度信息"""
@@ -171,9 +229,7 @@ def get_depth():
         x = int(data.get('x', 0))
         y = int(data.get('y', 0))
 
-        # 创建示例图像并处理
-        left_img, right_img = demo.create_sample_stereo_images()
-        results = demo.process_stereo_images(left_img, right_img)
+        results = demo.get_or_create_results()
 
         # 获取深度值
         depth_raw = results['depth_raw']
@@ -200,6 +256,24 @@ def get_depth():
             'success': False,
             'message': f'获取深度失败: {str(e)}'
         })
+
+
+def decode_uploaded_image(file_storage):
+    """解析上传的图像文件"""
+    file_bytes = np.frombuffer(file_storage.read(), np.uint8)
+    if file_bytes.size == 0:
+        return None
+    return cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+
+def resize_stereo_pair(left_img, right_img, target_size):
+    """调整左右图像尺寸保持一致"""
+    target_width, target_height = target_size
+    if left_img.shape[:2] != (target_height, target_width):
+        left_img = cv2.resize(left_img, (target_width, target_height))
+    if right_img.shape[:2] != (target_height, target_width):
+        right_img = cv2.resize(right_img, (target_width, target_height))
+    return left_img, right_img
 
 
 if __name__ == '__main__':

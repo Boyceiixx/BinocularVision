@@ -52,7 +52,7 @@
         <!-- 系统介绍 -->
         <div class="hero bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-8">
             <div class="hero-content text-center">
-                <div class="max-w-md">
+                <div class="max-w-2xl">
                     <h2 class="text-3xl font-bold text-primary mb-4">
                         <i class="fas fa-cube mr-2"></i>
                         双目三维重建
@@ -60,10 +60,57 @@
                     <p class="text-lg text-gray-600 mb-6">
                         体验完整的双目视觉系统：双目标定、立体校正、视差计算、深度测距和点云显示
                     </p>
-                    <button id="processBtn" class="btn btn-primary btn-lg">
-                        <i class="fas fa-play mr-2"></i>
-                        开始演示
-                    </button>
+                    <div class="flex flex-col sm:flex-row justify-center gap-3">
+                        <button id="processBtn" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play mr-2"></i>
+                            开始演示
+                        </button>
+                        <button id="resetBtn" class="btn btn-outline btn-lg">
+                            <i class="fas fa-rotate-left mr-2"></i>
+                            恢复默认示例
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入与说明 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="card bg-base-100 shadow-xl lg:col-span-2">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-4">
+                        <i class="fas fa-upload mr-2"></i>
+                        上传双目图像
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="form-control w-full">
+                            <span class="label-text font-semibold text-blue-600 mb-2">左图像</span>
+                            <input id="leftUpload" type="file" accept="image/*" class="file-input file-input-bordered w-full">
+                            <span id="leftFileName" class="text-xs text-gray-500 mt-2">未选择文件，使用默认示例</span>
+                        </label>
+                        <label class="form-control w-full">
+                            <span class="label-text font-semibold text-green-600 mb-2">右图像</span>
+                            <input id="rightUpload" type="file" accept="image/*" class="file-input file-input-bordered w-full">
+                            <span id="rightFileName" class="text-xs text-gray-500 mt-2">未选择文件，使用默认示例</span>
+                        </label>
+                    </div>
+                    <div class="mt-4 text-sm text-gray-600">
+                        <p><i class="fas fa-lightbulb mr-2 text-yellow-500"></i>建议上传同分辨率、同场景的双目图像（默认 640×480）。</p>
+                        <p>未选择上传文件时，将使用内置示例图像进行演示。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-4">
+                        <i class="fas fa-bullseye mr-2"></i>
+                        演示指引
+                    </h3>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                        <li>点击“开始演示”生成视差/深度结果</li>
+                        <li>在视差/深度图上点击查看测距信息</li>
+                        <li>支持上传自定义双目图像进行对比</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -199,6 +246,37 @@
                 </div>
             </div>
 
+            <!-- 物体尺寸估计预留区域 -->
+            <div class="card bg-base-100 shadow-xl mb-8">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-6">
+                        <i class="fas fa-video mr-2"></i>
+                        视频物体尺寸估计（预览）
+                    </h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg h-64 flex items-center justify-center">
+                                <p class="text-gray-500">视频流与估计结果展示区（预留）</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-blue-600">目标尺寸</h4>
+                                <p class="text-2xl font-bold text-gray-800">-- cm</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-600">估计距离</h4>
+                                <p class="text-2xl font-bold text-gray-800">-- mm</p>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-purple-600">目标类别</h4>
+                                <p class="text-2xl font-bold text-gray-800">--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 技术说明 -->
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body">
@@ -248,59 +326,114 @@
     </footer>
 
     <script>
+        let listenersAdded = false;
+
+        const leftUpload = document.getElementById('leftUpload');
+        const rightUpload = document.getElementById('rightUpload');
+        const leftFileName = document.getElementById('leftFileName');
+        const rightFileName = document.getElementById('rightFileName');
+        const resetBtn = document.getElementById('resetBtn');
+
+        leftUpload.addEventListener('change', () => {
+            leftFileName.textContent = leftUpload.files[0]?.name || '未选择文件，使用默认示例';
+        });
+        rightUpload.addEventListener('change', () => {
+            rightFileName.textContent = rightUpload.files[0]?.name || '未选择文件，使用默认示例';
+        });
+
+        resetBtn.addEventListener('click', () => {
+            leftUpload.value = '';
+            rightUpload.value = '';
+            leftFileName.textContent = '未选择文件，使用默认示例';
+            rightFileName.textContent = '未选择文件，使用默认示例';
+            runProcess(false);
+        });
+
         // 处理按钮点击事件
         document.getElementById('processBtn').addEventListener('click', function() {
+            runProcess(true);
+        });
+
+        function setButtonLoading(isLoading) {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = isLoading;
+            btn.innerHTML = isLoading
+                ? '<span class="loading loading-spinner loading-sm mr-2"></span>处理中...'
+                : '<i class="fas fa-play mr-2"></i>开始演示';
+        }
+
+        function updateResults(data) {
+            document.getElementById('leftImg').src = data.images.left;
+            document.getElementById('rightImg').src = data.images.right;
+            document.getElementById('rectifiedLeftImg').src = data.images.rectified_left;
+            document.getElementById('rectifiedRightImg').src = data.images.rectified_right;
+            document.getElementById('disparityImg').src = data.images.disparity;
+            document.getElementById('depthImg').src = data.images.depth;
+
+            const results = document.getElementById('results');
+            results.classList.remove('hidden');
+
+            if (!listenersAdded) {
+                addClickListeners();
+                listenersAdded = true;
+            }
+        }
+
+        function runProcess(showLoading = true) {
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
-            const btn = this;
+            const hasLeft = leftUpload.files.length > 0;
+            const hasRight = rightUpload.files.length > 0;
 
-            // 显示加载状态
-            loading.classList.add('active');
-            results.classList.add('hidden');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span>处理中...';
+            if ((hasLeft && !hasRight) || (!hasLeft && hasRight)) {
+                showAlert('error', '请同时选择左图像和右图像');
+                return;
+            }
 
-            // 发送处理请求
-            fetch('/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // 显示结果图像
-                    document.getElementById('leftImg').src = data.images.left;
-                    document.getElementById('rightImg').src = data.images.right;
-                    document.getElementById('rectifiedLeftImg').src = data.images.rectified_left;
-                    document.getElementById('rectifiedRightImg').src = data.images.rectified_right;
-                    document.getElementById('disparityImg').src = data.images.disparity;
-                    document.getElementById('depthImg').src = data.images.depth;
+            if (showLoading) {
+                loading.classList.add('active');
+                results.classList.add('hidden');
+                setButtonLoading(true);
+            }
 
-                    // 隐藏加载状态，显示结果
-                    loading.classList.remove('active');
-                    results.classList.remove('hidden');
+            let requestPromise;
+            if (hasLeft && hasRight) {
+                const formData = new FormData();
+                formData.append('left_image', leftUpload.files[0]);
+                formData.append('right_image', rightUpload.files[0]);
+                requestPromise = fetch('/upload_process', {
+                    method: 'POST',
+                    body: formData
+                });
+            } else {
+                requestPromise = fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+            }
 
-                    // 添加点击事件监听器
-                    addClickListeners();
-
-                    // 显示成功消息
-                    showAlert('success', data.message);
-                } else {
-                    showAlert('error', data.message);
-                }
-            })
-            .catch(error => {
-                showAlert('error', '处理失败: ' + error.message);
-            })
-            .finally(() => {
-                // 恢复按钮状态
-                loading.classList.remove('active');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play mr-2"></i>开始演示';
-            });
-        });
+            requestPromise
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateResults(data);
+                        showAlert('success', data.message);
+                    } else {
+                        showAlert('error', data.message);
+                    }
+                })
+                .catch(error => {
+                    showAlert('error', '处理失败: ' + error.message);
+                })
+                .finally(() => {
+                    if (showLoading) {
+                        loading.classList.remove('active');
+                        setButtonLoading(false);
+                    }
+                });
+        }
 
         // 添加图像点击事件监听器
         function addClickListeners() {
@@ -394,6 +527,10 @@
                 alertDiv.remove();
             }, 3000);
         }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            runProcess(true);
+        });
     </script>
 </body>
 </html>
