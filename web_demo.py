@@ -17,6 +17,7 @@ class StereoVisionDemo:
     def __init__(self):
         # 创建示例双目相机参数
         self.create_sample_stereo_params()
+        self.last_results = None
 
     def create_sample_stereo_params(self):
         """创建示例双目相机参数"""
@@ -124,6 +125,16 @@ class StereoVisionDemo:
         img_str = base64.b64encode(buffer).decode()
         return f"data:image/png;base64,{img_str}"
 
+    def store_results(self, results):
+        """缓存最近一次结果供查询"""
+        self.last_results = results
+
+    def get_last_disparity(self):
+        """获取最近的视差结果"""
+        if not self.last_results:
+            return None
+        return self.last_results.get('disparity_raw')
+
 
 # 创建全局演示实例
 demo = StereoVisionDemo()
@@ -143,6 +154,7 @@ def process():
 
         # 处理图像
         results = demo.process_stereo_images(left_img, right_img)
+        demo.store_results(results)
 
         # 转换为base64
         response = {}
@@ -153,6 +165,10 @@ def process():
         return jsonify({
             'success': True,
             'images': response,
+            'meta': {
+                'width': left_img.shape[1],
+                'height': left_img.shape[0]
+            },
             'message': '双目三维重建处理完成！'
         })
 
@@ -171,23 +187,23 @@ def get_depth():
         x = int(data.get('x', 0))
         y = int(data.get('y', 0))
 
-        # 创建示例图像并处理
-        left_img, right_img = demo.create_sample_stereo_images()
-        results = demo.process_stereo_images(left_img, right_img)
+        disparity_raw = demo.get_last_disparity()
+        if disparity_raw is None:
+            return jsonify({
+                'success': False,
+                'message': '没有可用的视差数据，请先上传并处理图像'
+            })
 
         # 获取深度值
-        depth_raw = results['depth_raw']
-        if 0 <= y < depth_raw.shape[0] and 0 <= x < depth_raw.shape[1]:
-            depth_value = depth_raw[y, x]
-            disparity_value = results['disparity_raw'][y, x]
+        if 0 <= y < disparity_raw.shape[0] and 0 <= x < disparity_raw.shape[1]:
+            disparity_value = disparity_raw[y, x]
 
             return jsonify({
                 'success': True,
                 'x': x,
                 'y': y,
-                'depth': float(depth_value),
                 'disparity': float(disparity_value),
-                'message': f'坐标({x}, {y})处的深度: {depth_value:.1f}mm'
+                'message': f'坐标({x}, {y})处的视差: {disparity_value:.1f}'
             })
         else:
             return jsonify({
@@ -198,7 +214,58 @@ def get_depth():
     except Exception as e:
         return jsonify({
             'success': False,
-            'message': f'获取深度失败: {str(e)}'
+            'message': f'获取视差信息失败: {str(e)}'
+        })
+
+
+@app.route('/upload_process', methods=['POST'])
+def upload_process():
+    """上传双目图像并处理"""
+    try:
+        left_file = request.files.get('left')
+        right_file = request.files.get('right')
+
+        if left_file is None or right_file is None:
+            return jsonify({
+                'success': False,
+                'message': '请同时上传左、右图像'
+            })
+
+        left_bytes = np.frombuffer(left_file.read(), np.uint8)
+        right_bytes = np.frombuffer(right_file.read(), np.uint8)
+
+        left_img = cv2.imdecode(left_bytes, cv2.IMREAD_COLOR)
+        right_img = cv2.imdecode(right_bytes, cv2.IMREAD_COLOR)
+
+        if left_img is None or right_img is None:
+            return jsonify({
+                'success': False,
+                'message': '图像解析失败，请确认上传文件为有效图片'
+            })
+
+        results = demo.process_stereo_images(left_img, right_img)
+        demo.store_results(results)
+
+        response = {
+            'left': demo.image_to_base64(results['left']),
+            'right': demo.image_to_base64(results['right']),
+            'disparity': demo.image_to_base64(results['disparity'])
+        }
+
+        return jsonify({
+            'success': True,
+            'images': response,
+            'meta': {
+                'width': left_img.shape[1],
+                'height': left_img.shape[0]
+            },
+            'message': '图像上传成功，视差计算完成！'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'上传处理失败: {str(e)}'
         })
 
 

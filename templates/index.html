@@ -60,10 +60,22 @@
                     <p class="text-lg text-gray-600 mb-6">
                         体验完整的双目视觉系统：双目标定、立体校正、视差计算、深度测距和点云显示
                     </p>
-                    <button id="processBtn" class="btn btn-primary btn-lg">
-                        <i class="fas fa-play mr-2"></i>
-                        开始演示
-                    </button>
+                    <div class="flex flex-col gap-4">
+                        <div class="grid grid-cols-1 gap-4 text-left">
+                            <label class="form-control w-full">
+                                <span class="label-text font-semibold">上传左相机图像</span>
+                                <input id="leftFile" type="file" accept="image/*" class="file-input file-input-bordered w-full" />
+                            </label>
+                            <label class="form-control w-full">
+                                <span class="label-text font-semibold">上传右相机图像</span>
+                                <input id="rightFile" type="file" accept="image/*" class="file-input file-input-bordered w-full" />
+                            </label>
+                        </div>
+                        <button id="processBtn" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload mr-2"></i>
+                            上传并计算视差
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -121,7 +133,8 @@
                         <div class="text-center">
                             <h4 class="text-lg font-semibold mb-3 text-blue-600">左相机图像</h4>
                             <div class="image-container">
-                                <img id="leftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="左相机图像">
+                                <img id="leftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200 clickable-image" alt="左相机图像">
+                                <div id="leftInfo" class="depth-info"></div>
                             </div>
                         </div>
                         <div class="text-center">
@@ -134,54 +147,20 @@
                 </div>
             </div>
 
-            <!-- 校正后图像 -->
-            <div class="card bg-base-100 shadow-xl mb-8">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-adjust mr-2"></i>
-                        立体校正后图像
-                    </h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-blue-600">校正后左图像</h4>
-                            <div class="image-container">
-                                <img id="rectifiedLeftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="校正后左图像">
-                            </div>
-                        </div>
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-green-600">校正后右图像</h4>
-                            <div class="image-container">
-                                <img id="rectifiedRightImg" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="校正后右图像">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 视差图和深度图 -->
+            <!-- 视差图 -->
             <div class="card bg-base-100 shadow-xl mb-8">
                 <div class="card-body">
                     <h3 class="card-title text-2xl mb-6">
                         <i class="fas fa-layer-group mr-2"></i>
-                        视差图和深度图
+                        视差图
                     </h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-purple-600">视差图</h4>
-                            <div class="image-container">
-                                <img id="disparityImg" class="w-full rounded-lg shadow-md border-2 border-purple-200 clickable-image" alt="视差图">
-                                <div id="disparityInfo" class="depth-info"></div>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-2">颜色越亮表示物体越近</p>
+                    <div class="text-center">
+                        <h4 class="text-lg font-semibold mb-3 text-purple-600">视差图</h4>
+                        <div class="image-container">
+                            <img id="disparityImg" class="w-full rounded-lg shadow-md border-2 border-purple-200 clickable-image" alt="视差图">
+                            <div id="disparityInfo" class="depth-info"></div>
                         </div>
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-red-600">深度图</h4>
-                            <div class="image-container">
-                                <img id="depthImg" class="w-full rounded-lg shadow-md border-2 border-red-200 clickable-image" alt="深度图">
-                                <div id="depthInfo" class="depth-info"></div>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-2">点击图像获取深度信息</p>
-                        </div>
+                        <p class="text-sm text-gray-600 mt-2">点击图像获取视差信息</p>
                     </div>
                 </div>
             </div>
@@ -194,7 +173,7 @@
                         深度测距信息
                     </h3>
                     <div id="depthMeasurement" class="bg-gray-50 p-6 rounded-lg">
-                        <p class="text-lg text-center text-gray-600">点击上方深度图或视差图获取测距信息</p>
+                        <p class="text-lg text-center text-gray-600">点击原图或视差图获取视差信息</p>
                     </div>
                 </div>
             </div>
@@ -260,12 +239,25 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span>处理中...';
 
+            const leftFile = document.getElementById('leftFile').files[0];
+            const rightFile = document.getElementById('rightFile').files[0];
+
+            if (!leftFile || !rightFile) {
+                showAlert('error', '请先上传左、右相机图像');
+                loading.classList.remove('active');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-upload mr-2"></i>上传并计算视差';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('left', leftFile);
+            formData.append('right', rightFile);
+
             // 发送处理请求
-            fetch('/process', {
+            fetch('/upload_process', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
@@ -273,10 +265,14 @@
                     // 显示结果图像
                     document.getElementById('leftImg').src = data.images.left;
                     document.getElementById('rightImg').src = data.images.right;
-                    document.getElementById('rectifiedLeftImg').src = data.images.rectified_left;
-                    document.getElementById('rectifiedRightImg').src = data.images.rectified_right;
                     document.getElementById('disparityImg').src = data.images.disparity;
-                    document.getElementById('depthImg').src = data.images.depth;
+
+                    const imageWidth = data.meta?.width || 640;
+                    const imageHeight = data.meta?.height || 480;
+                    document.getElementById('leftImg').dataset.width = imageWidth;
+                    document.getElementById('leftImg').dataset.height = imageHeight;
+                    document.getElementById('disparityImg').dataset.width = imageWidth;
+                    document.getElementById('disparityImg').dataset.height = imageHeight;
 
                     // 隐藏加载状态，显示结果
                     loading.classList.remove('active');
@@ -312,8 +308,10 @@
                     const y = Math.round(event.clientY - rect.top);
 
                     // 计算相对于原图的坐标
-                    const scaleX = 640 / rect.width;
-                    const scaleY = 480 / rect.height;
+                    const imageWidth = parseFloat(this.dataset.width || 640);
+                    const imageHeight = parseFloat(this.dataset.height || 480);
+                    const scaleX = imageWidth / rect.width;
+                    const scaleY = imageHeight / rect.height;
                     const actualX = Math.round(x * scaleX);
                     const actualY = Math.round(y * scaleY);
 
@@ -339,7 +337,7 @@
                     if (infoDiv) {
                         infoDiv.style.left = displayX + 'px';
                         infoDiv.style.top = displayY + 'px';
-                        infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>深度: ${data.depth.toFixed(1)}mm<br>视差: ${data.disparity.toFixed(1)}`;
+                        infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>视差: ${data.disparity.toFixed(1)}`;
                         infoDiv.style.display = 'block';
 
                         // 3秒后隐藏
@@ -351,14 +349,10 @@
                     // 更新测距信息区域
                     const measurementDiv = document.getElementById('depthMeasurement');
                     measurementDiv.innerHTML = `
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
                             <div class="bg-blue-50 p-4 rounded-lg">
                                 <h4 class="font-semibold text-blue-600">像素坐标</h4>
                                 <p class="text-2xl font-bold">(${data.x}, ${data.y})</p>
-                            </div>
-                            <div class="bg-green-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-green-600">深度距离</h4>
-                                <p class="text-2xl font-bold">${data.depth.toFixed(1)} mm</p>
                             </div>
                             <div class="bg-purple-50 p-4 rounded-lg">
                                 <h4 class="font-semibold text-purple-600">视差值</h4>
