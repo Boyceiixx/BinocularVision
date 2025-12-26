@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双目三维重建系统演示</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/daisyui/4.12.10/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .image-container {
+            position: relative;
+            display: inline-block;
+        }
+        .image-container img {
+            cursor: crosshair;
+        }
+        .depth-info {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .loading {
+            display: none;
+        }
+        .loading.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-base-100">
+    <!-- 导航栏 -->
+    <div class="navbar bg-primary text-primary-content shadow-lg">
+        <div class="flex-1">
+            <h1 class="text-xl font-bold">
+                <i class="fas fa-eye mr-2"></i>
+                双目三维重建系统演示
+            </h1>
+        </div>
+        <div class="flex-none">
+            <div class="badge badge-secondary">Python + OpenCV</div>
+        </div>
+    </div>
+
+    <!-- 主要内容 -->
+    <div class="container mx-auto p-6">
+        <!-- 系统介绍 -->
+        <div class="hero bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-8">
+            <div class="hero-content text-center">
+                <div class="max-w-md">
+                    <h2 class="text-3xl font-bold text-primary mb-4">
+                        <i class="fas fa-cube mr-2"></i>
+                        双目三维重建
+                    </h2>
+                    <p class="text-lg text-gray-600 mb-6">
+                        体验完整的双目视觉系统：双目标定、立体校正、视差计算、深度测距和点云显示
+                    </p>
+                    <button id="processBtn" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play mr-2"></i>
+                        开始演示
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能特性 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-center">
+                    <i class="fas fa-camera text-4xl text-blue-500 mb-4"></i>
+                    <h3 class="card-title justify-center">双目标定</h3>
+                    <p class="text-sm text-gray-600">相机内外参数标定</p>
+                </div>
+            </div>
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-center">
+                    <i class="fas fa-adjust text-4xl text-green-500 mb-4"></i>
+                    <h3 class="card-title justify-center">立体校正</h3>
+                    <p class="text-sm text-gray-600">畸变校正和共面行对准</p>
+                </div>
+            </div>
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-center">
+                    <i class="fas fa-layer-group text-4xl text-purple-500 mb-4"></i>
+                    <h3 class="card-title justify-center">视差计算</h3>
+                    <p class="text-sm text-gray-600">SGBM算法和WLS滤波</p>
+                </div>
+            </div>
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-center">
+                    <i class="fas fa-ruler text-4xl text-red-500 mb-4"></i>
+                    <h3 class="card-title justify-center">深度测距</h3>
+                    <p class="text-sm text-gray-600">精确到毫米级测量</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loading" class="loading text-center py-8">
+            <div class="flex flex-col items-center">
+                <span class="loading loading-spinner loading-lg text-primary"></span>
+                <p class="mt-4 text-lg">正在处理双目图像...</p>
+            </div>
+        </div>
+
+        <!-- 结果显示区域 -->
+        <div id="results" class="hidden">
+            <!-- 原始图像 -->
+            <div class="card bg-base-100 shadow-xl mb-8">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-6">
+                        <i class="fas fa-images mr-2"></i>
+                        原始双目图像
+                    </h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="text-center">
+                            <h4 class="text-lg font-semibold mb-3 text-blue-600">左相机图像</h4>
+                            <div class="image-container">
+                                <img id="leftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="左相机图像">
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h4 class="text-lg font-semibold mb-3 text-green-600">右相机图像</h4>
+                            <div class="image-container">
+                                <img id="rightImg" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="右相机图像">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 校正后图像 -->
+            <div class="card bg-base-100 shadow-xl mb-8">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-6">
+                        <i class="fas fa-adjust mr-2"></i>
+                        立体校正后图像
+                    </h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="text-center">
+                            <h4 class="text-lg font-semibold mb-3 text-blue-600">校正后左图像</h4>
+                            <div class="image-container">
+                                <img id="rectifiedLeftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="校正后左图像">
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h4 class="text-lg font-semibold mb-3 text-green-600">校正后右图像</h4>
+                            <div class="image-container">
+                                <img id="rectifiedRightImg" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="校正后右图像">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 视差图和深度图 -->
+            <div class="card bg-base-100 shadow-xl mb-8">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-6">
+                        <i class="fas fa-layer-group mr-2"></i>
+                        视差图和深度图
+                    </h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="text-center">
+                            <h4 class="text-lg font-semibold mb-3 text-purple-600">视差图</h4>
+                            <div class="image-container">
+                                <img id="disparityImg" class="w-full rounded-lg shadow-md border-2 border-purple-200 clickable-image" alt="视差图">
+                                <div id="disparityInfo" class="depth-info"></div>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2">颜色越亮表示物体越近</p>
+                        </div>
+                        <div class="text-center">
+                            <h4 class="text-lg font-semibold mb-3 text-red-600">深度图</h4>
+                            <div class="image-container">
+                                <img id="depthImg" class="w-full rounded-lg shadow-md border-2 border-red-200 clickable-image" alt="深度图">
+                                <div id="depthInfo" class="depth-info"></div>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2">点击图像获取深度信息</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 测距信息 -->
+            <div class="card bg-base-100 shadow-xl mb-8">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-6">
+                        <i class="fas fa-ruler mr-2"></i>
+                        深度测距信息
+                    </h3>
+                    <div id="depthMeasurement" class="bg-gray-50 p-6 rounded-lg">
+                        <p class="text-lg text-center text-gray-600">点击上方深度图或视差图获取测距信息</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 技术说明 -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="card-title text-2xl mb-6">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        技术说明
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-3 text-blue-600">算法流程</h4>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>双目相机标定获取内外参数</li>
+                                <li>立体校正实现共面行对准</li>
+                                <li>SGBM算法计算视差图</li>
+                                <li>WLS滤波优化视差效果</li>
+                                <li>重投影矩阵计算深度信息</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold mb-3 text-green-600">精度说明</h4>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>理论精度可达毫米级</li>
+                                <li>有效测量距离：0.6-6米</li>
+                                <li>深度误差与距离平方成正比</li>
+                                <li>标定误差需控制在0.1以内</li>
+                                <li>基线长度影响测量范围</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer footer-center p-10 bg-base-200 text-base-content mt-16">
+        <div>
+            <p class="text-lg font-semibold">双目三维重建系统演示</p>
+            <p>基于OpenCV和Python实现的完整双目视觉解决方案</p>
+<!--            <p class="text-sm text-gray-600 mt-2">-->
+<!--                来源: <a href="https://blog.csdn.net/guyuealian/article/details/121301896"-->
+<!--                        class="link link-primary" target="_blank">-->
+<!--                    双目三维重建系统(双目标定+立体校正+双目测距+点云显示)Python-->
+<!--                </a>-->
+<!--            </p>-->
+        </div>
+    </footer>
+
+    <script>
+        // 处理按钮点击事件
+        document.getElementById('processBtn').addEventListener('click', function() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const btn = this;
+
+            // 显示加载状态
+            loading.classList.add('active');
+            results.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span>处理中...';
+
+            // 发送处理请求
+            fetch('/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 显示结果图像
+                    document.getElementById('leftImg').src = data.images.left;
+                    document.getElementById('rightImg').src = data.images.right;
+                    document.getElementById('rectifiedLeftImg').src = data.images.rectified_left;
+                    document.getElementById('rectifiedRightImg').src = data.images.rectified_right;
+                    document.getElementById('disparityImg').src = data.images.disparity;
+                    document.getElementById('depthImg').src = data.images.depth;
+
+                    // 隐藏加载状态，显示结果
+                    loading.classList.remove('active');
+                    results.classList.remove('hidden');
+
+                    // 添加点击事件监听器
+                    addClickListeners();
+
+                    // 显示成功消息
+                    showAlert('success', data.message);
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', '处理失败: ' + error.message);
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                loading.classList.remove('active');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play mr-2"></i>开始演示';
+            });
+        });
+
+        // 添加图像点击事件监听器
+        function addClickListeners() {
+            const clickableImages = document.querySelectorAll('.clickable-image');
+            clickableImages.forEach(img => {
+                img.addEventListener('click', function(event) {
+                    const rect = this.getBoundingClientRect();
+                    const x = Math.round(event.clientX - rect.left);
+                    const y = Math.round(event.clientY - rect.top);
+
+                    // 计算相对于原图的坐标
+                    const scaleX = 640 / rect.width;
+                    const scaleY = 480 / rect.height;
+                    const actualX = Math.round(x * scaleX);
+                    const actualY = Math.round(y * scaleY);
+
+                    getDepthInfo(actualX, actualY, x, y, this);
+                });
+            });
+        }
+
+        // 获取深度信息
+        function getDepthInfo(x, y, displayX, displayY, imgElement) {
+            fetch('/get_depth', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({x: x, y: y})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 显示深度信息
+                    const infoDiv = imgElement.parentElement.querySelector('.depth-info');
+                    if (infoDiv) {
+                        infoDiv.style.left = displayX + 'px';
+                        infoDiv.style.top = displayY + 'px';
+                        infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>深度: ${data.depth.toFixed(1)}mm<br>视差: ${data.disparity.toFixed(1)}`;
+                        infoDiv.style.display = 'block';
+
+                        // 3秒后隐藏
+                        setTimeout(() => {
+                            infoDiv.style.display = 'none';
+                        }, 3000);
+                    }
+
+                    // 更新测距信息区域
+                    const measurementDiv = document.getElementById('depthMeasurement');
+                    measurementDiv.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-blue-600">像素坐标</h4>
+                                <p class="text-2xl font-bold">(${data.x}, ${data.y})</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-600">深度距离</h4>
+                                <p class="text-2xl font-bold">${data.depth.toFixed(1)} mm</p>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-purple-600">视差值</h4>
+                                <p class="text-2xl font-bold">${data.disparity.toFixed(1)}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', '获取深度信息失败: ' + error.message);
+            });
+        }
+
+        // 显示提示消息
+        function showAlert(type, message) {
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert ${alertClass} fixed top-4 right-4 w-auto max-w-md z-50`;
+            alertDiv.innerHTML = `
+                <i class="fas ${icon}"></i>
+                <span>${message}</span>
+            `;
+
+            document.body.appendChild(alertDiv);
+
+            // 3秒后移除提示
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
