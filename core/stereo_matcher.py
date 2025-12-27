@@ -1,9 +1,4 @@
 # -*-coding: utf-8 -*-
-"""
-@Author : pan-author
-@E-mail : 390737991@qq.com
-@Date : 2020-04-10 18:24:06
-"""
 import cv2
 import numpy as np
 
