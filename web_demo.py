@@ -7,11 +7,23 @@ import re
 import cv2
 import numpy as np
 import base64
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from core import camera_params, stereo_matcher
+from camera_stream import get_camera_frames, build_stream_url
 import json
 
 app = Flask(__name__)
+
+CAMERA_CONFIG = {
+    "ip": "172.16.0.108",
+    "port": 554,
+    "username": "",
+    "password": "",
+    "protocol": "rtsp",
+    "stream_path": "11",
+    "width": None,
+    "height": None,
+}
 
 
 class StereoVisionDemo:
@@ -267,6 +279,7 @@ class MiddleburyDemo:
 # 创建全局演示实例
 demo = StereoVisionDemo()
 middlebury_demo = MiddleburyDemo()
+latest_camera_frame = None
 
 
 @app.route('/')
@@ -479,6 +492,53 @@ def resize_stereo_pair(left_img, right_img, target_size):
     if right_img.shape[:2] != (target_height, target_width):
         right_img = cv2.resize(right_img, (target_width, target_height))
     return left_img, right_img
+
+
+def _camera_frame_generator():
+    global latest_camera_frame
+    frames = get_camera_frames(
+        ip=CAMERA_CONFIG["ip"],
+        port=CAMERA_CONFIG["port"],
+        username=CAMERA_CONFIG["username"],
+        password=CAMERA_CONFIG["password"],
+        protocol=CAMERA_CONFIG["protocol"],
+        stream_path=CAMERA_CONFIG["stream_path"],
+        width=CAMERA_CONFIG["width"],
+        height=CAMERA_CONFIG["height"],
+    )
+    for frame in frames:
+        latest_camera_frame = frame
+        success, buffer = cv2.imencode(".jpg", frame)
+        if not success:
+            continue
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
+
+
+@app.route("/camera/stream")
+def camera_stream():
+    return Response(_camera_frame_generator(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
+@app.route("/camera/capture", methods=["POST"])
+def camera_capture():
+    global latest_camera_frame
+    if latest_camera_frame is None:
+        return jsonify({
+            "success": False,
+            "message": "尚未获取到摄像头帧，请先打开视频流"
+        })
+    success, buffer = cv2.imencode(".jpg", latest_camera_frame)
+    if not success:
+        return jsonify({
+            "success": False,
+            "message": "抓拍失败"
+        })
+    img_str = base64.b64encode(buffer).decode()
+    return jsonify({
+        "success": True,
+        "image": f"data:image/jpeg;base64,{img_str}"
+    })
 
 
 if __name__ == '__main__':

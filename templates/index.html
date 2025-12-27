@@ -52,234 +52,38 @@
 
     <!-- 主要内容 -->
     <div class="container mx-auto p-4">
-        <!-- 系统介绍 -->
-        <div class="hero bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
-            <div class="hero-content text-center">
-                <div class="max-w-2xl">
-                    <h2 class="text-2xl font-bold text-primary mb-3">
-                        <i class="fas fa-cube mr-2"></i>
-                        双目三维重建
-                    </h2>
-                    <p class="text-base text-gray-600 mb-4">
-                        体验完整的双目视觉系统：双目标定、立体校正、视差计算、深度测距和点云显示
-                    </p>
-                    <div class="flex flex-col sm:flex-row justify-center gap-3">
-                        <button id="processBtn" class="btn btn-primary btn-lg">
-                            <i class="fas fa-play mr-2"></i>
-                            开始演示
-                        </button>
-                        <button id="resetBtn" class="btn btn-outline btn-lg">
-                            <i class="fas fa-rotate-left mr-2"></i>
-                            恢复默认示例
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 输入与说明 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <div class="card bg-base-100 shadow-xl lg:col-span-2">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-4">
-                        <i class="fas fa-upload mr-2"></i>
-                        上传双目图像
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label class="form-control w-full">
-                            <span class="label-text font-semibold text-blue-600 mb-2">左图像</span>
-                            <input id="leftUpload" type="file" accept="image/*" class="file-input file-input-bordered w-full">
-                            <span id="leftFileName" class="text-xs text-gray-500 mt-2">未选择文件，使用默认示例</span>
-                        </label>
-                        <label class="form-control w-full">
-                            <span class="label-text font-semibold text-green-600 mb-2">右图像</span>
-                            <input id="rightUpload" type="file" accept="image/*" class="file-input file-input-bordered w-full">
-                            <span id="rightFileName" class="text-xs text-gray-500 mt-2">未选择文件，使用默认示例</span>
-                        </label>
-                    </div>
-                    <div class="mt-4 text-sm text-gray-600">
-                        <p><i class="fas fa-lightbulb mr-2 text-yellow-500"></i>建议上传同分辨率、同场景的双目图像（默认 640×480）。</p>
-                        <p>未选择上传文件时，将使用内置示例图像进行演示。</p>
-                    </div>
-                </div>
-            </div>
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-4">
-                        <i class="fas fa-bullseye mr-2"></i>
-                        演示指引
-                    </h3>
-                    <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
-                        <li>点击“开始演示”生成视差/深度结果</li>
-                        <li>在视差/深度图上点击查看测距信息</li>
-                        <li>支持上传自定义双目图像进行对比</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Middlebury 2006 双目数据集 -->
-        <div class="card bg-base-100 shadow-xl mb-8">
+        <!-- 摄像头实时流 -->
+        <div class="card bg-base-100 shadow-xl mb-6">
             <div class="card-body">
-                <h3 class="card-title text-2xl mb-4">
-                    <i class="fas fa-database mr-2"></i>
-                    Middlebury 2006 双目数据集（2 views）
-                </h3>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div class="lg:col-span-2">
-                        <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                            <select id="middleburySelect" class="select select-bordered w-full sm:max-w-xs">
-                                <option value="">请选择数据集</option>
-                            </select>
-                            <button id="middleburyLoadBtn" class="btn btn-primary">
-                                <i class="fas fa-play mr-2"></i>
-                                计算视差
-                            </button>
-                        </div>
-                        <p class="text-sm text-gray-600 mt-3">
-                            点击左侧原图可获取该点视差信息。
-                        </p>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600">说明：</p>
-                        <ul class="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
-                            <li>自动读取 data 目录中的 *-2views 场景</li>
-                            <li>使用场景自带 calib.txt</li>
-                            <li>点击原图计算视差值</li>
-                        </ul>
-                    </div>
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                    <h2 class="card-title text-2xl">
+                        <i class="fas fa-video mr-2"></i>
+                        摄像头实时流
+                    </h2>
+                    <button id="captureBtn" class="btn btn-primary">
+                        <i class="fas fa-camera mr-2"></i>
+                        抓拍当前帧
+                    </button>
                 </div>
-
-                <div id="middleburyResults" class="hidden mt-6">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-blue-600">左相机原图（可点击）</h4>
-                            <div class="image-container">
-                                <img id="middleburyLeftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="Middlebury 左图">
-                                <div id="middleburyInfo" class="depth-info"></div>
-                            </div>
-                        </div>
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-green-600">右相机原图</h4>
-                            <div class="image-container">
-                                <img id="middleburyRightImg" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="Middlebury 右图">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="text-center">
-                        <h4 class="text-lg font-semibold mb-3 text-purple-600">视差图</h4>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-blue-600 mb-2">实时画面</h3>
                         <div class="image-container">
-                            <img id="middleburyDispImg" class="w-full rounded-lg shadow-md border-2 border-purple-200" alt="Middlebury 视差图">
+                            <img id="cameraStream" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="摄像头实时画面">
                         </div>
                     </div>
-                    <div id="middleburyMeasurement" class="bg-gray-50 p-4 rounded-lg mt-6 text-center text-gray-600">
-                        点击左侧原图获取视差信息
+                    <div>
+                        <h3 class="text-lg font-semibold text-green-600 mb-2">抓拍结果</h3>
+                        <div class="image-container">
+                            <img id="captureImage" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="抓拍图像">
+                        </div>
+                        <p id="captureHint" class="text-sm text-gray-500 mt-2">点击“抓拍当前帧”保存画面。</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 加载状态 -->
-        <div id="loading" class="loading text-center py-8">
-            <div class="flex flex-col items-center">
-                <span class="loading loading-spinner loading-lg text-primary"></span>
-                <p class="mt-4 text-lg">正在处理双目图像...</p>
-            </div>
-        </div>
-
-        <!-- 结果显示区域 -->
-        <div id="results" class="hidden">
-            <!-- 原始图像 -->
-            <div class="card bg-base-100 shadow-xl mb-8">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-images mr-2"></i>
-                        原始双目图像
-                    </h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-blue-600">左相机图像</h4>
-                            <div class="image-container">
-                                <img id="leftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="左相机图像">
-                            </div>
-                        </div>
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-green-600">右相机图像</h4>
-                            <div class="image-container">
-                                <img id="rightImg" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="右相机图像">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 校正后图像 -->
-            <div class="card bg-base-100 shadow-xl mb-8">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-adjust mr-2"></i>
-                        立体校正后图像
-                    </h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-blue-600">校正后左图像</h4>
-                            <div class="image-container">
-                                <img id="rectifiedLeftImg" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="校正后左图像">
-                            </div>
-                        </div>
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-green-600">校正后右图像</h4>
-                            <div class="image-container">
-                                <img id="rectifiedRightImg" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="校正后右图像">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 视差图和深度图 -->
-            <div class="card bg-base-100 shadow-xl mb-8">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-layer-group mr-2"></i>
-                        视差图和深度图
-                    </h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-purple-600">视差图</h4>
-                            <div class="image-container">
-                                <img id="disparityImg" class="w-full rounded-lg shadow-md border-2 border-purple-200 clickable-image" alt="视差图">
-                                <div id="disparityInfo" class="depth-info"></div>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-2">颜色越亮表示物体越近</p>
-                        </div>
-                        <div class="text-center">
-                            <h4 class="text-lg font-semibold mb-3 text-red-600">深度图</h4>
-                            <div class="image-container">
-                                <img id="depthImg" class="w-full rounded-lg shadow-md border-2 border-red-200 clickable-image" alt="深度图">
-                                <div id="depthInfo" class="depth-info"></div>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-2">点击图像获取深度信息</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 测距信息 -->
-            <div class="card bg-base-100 shadow-xl mb-8">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-ruler mr-2"></i>
-                        深度测距信息
-                    </h3>
-                    <div id="depthMeasurement" class="bg-gray-50 p-6 rounded-lg">
-                        <p class="text-lg text-center text-gray-600">点击上方深度图或视差图获取测距信息</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 可按需扩展更多展示模块 -->
-        </div>
+        <!-- 可按需扩展更多展示模块 -->
     </div>
 
     <!-- 页脚 -->
@@ -297,312 +101,34 @@
     </footer>
 
     <script>
-        let listenersAdded = false;
+        const captureBtn = document.getElementById('captureBtn');
+        const cameraStream = document.getElementById('cameraStream');
+        const captureImage = document.getElementById('captureImage');
+        const captureHint = document.getElementById('captureHint');
 
-        const leftUpload = document.getElementById('leftUpload');
-        const rightUpload = document.getElementById('rightUpload');
-        const leftFileName = document.getElementById('leftFileName');
-        const rightFileName = document.getElementById('rightFileName');
-        const resetBtn = document.getElementById('resetBtn');
-        const middleburySelect = document.getElementById('middleburySelect');
-        const middleburyLoadBtn = document.getElementById('middleburyLoadBtn');
-        const middleburyLeftImg = document.getElementById('middleburyLeftImg');
-        const middleburyRightImg = document.getElementById('middleburyRightImg');
-        const middleburyDispImg = document.getElementById('middleburyDispImg');
-        const middleburyResults = document.getElementById('middleburyResults');
-        const middleburyMeasurement = document.getElementById('middleburyMeasurement');
-        let middleburyScene = null;
-        let middleburySize = {width: 0, height: 0};
+        cameraStream.src = '/camera/stream';
 
-        leftUpload.addEventListener('change', () => {
-            const leftFile = leftUpload.files[0];
-            leftFileName.textContent = leftFile ? leftFile.name : '未选择文件，使用默认示例';
-        });
-        rightUpload.addEventListener('change', () => {
-            const rightFile = rightUpload.files[0];
-            rightFileName.textContent = rightFile ? rightFile.name : '未选择文件，使用默认示例';
-        });
-
-        resetBtn.addEventListener('click', () => {
-            leftUpload.value = '';
-            rightUpload.value = '';
-            leftFileName.textContent = '未选择文件，使用默认示例';
-            rightFileName.textContent = '未选择文件，使用默认示例';
-            runProcess(false);
-        });
-
-        // 处理按钮点击事件
-        document.getElementById('processBtn').addEventListener('click', function() {
-            runProcess(true);
-        });
-
-        middleburyLoadBtn.addEventListener('click', () => {
-            const scene = middleburySelect.value;
-            if (!scene) {
-                showAlert('error', '请先选择 Middlebury 场景');
-                return;
-            }
-            loadMiddleburyScene(scene);
-        });
-
-        function setButtonLoading(isLoading) {
-            const btn = document.getElementById('processBtn');
-            btn.disabled = isLoading;
-            btn.innerHTML = isLoading
-                ? '<span class="loading loading-spinner loading-sm mr-2"></span>处理中...'
-                : '<i class="fas fa-play mr-2"></i>开始演示';
-        }
-
-        function updateResults(data) {
-            document.getElementById('leftImg').src = data.images.left;
-            document.getElementById('rightImg').src = data.images.right;
-            document.getElementById('rectifiedLeftImg').src = data.images.rectified_left;
-            document.getElementById('rectifiedRightImg').src = data.images.rectified_right;
-            document.getElementById('disparityImg').src = data.images.disparity;
-            document.getElementById('depthImg').src = data.images.depth;
-
-            const results = document.getElementById('results');
-            results.classList.remove('hidden');
-
-            if (!listenersAdded) {
-                addClickListeners();
-                listenersAdded = true;
-            }
-        }
-
-        function runProcess(showLoading = true) {
-            const loading = document.getElementById('loading');
-            const results = document.getElementById('results');
-            const hasLeft = leftUpload.files.length > 0;
-            const hasRight = rightUpload.files.length > 0;
-
-            if ((hasLeft && !hasRight) || (!hasLeft && hasRight)) {
-                showAlert('error', '请同时选择左图像和右图像');
-                return;
-            }
-
-            if (showLoading) {
-                loading.classList.add('active');
-                results.classList.add('hidden');
-                setButtonLoading(true);
-            }
-
-            let requestPromise;
-            if (hasLeft && hasRight) {
-                const formData = new FormData();
-                formData.append('left_image', leftUpload.files[0]);
-                formData.append('right_image', rightUpload.files[0]);
-                requestPromise = fetch('/upload_process', {
-                    method: 'POST',
-                    body: formData
-                });
-            } else {
-                requestPromise = fetch('/process', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-            }
-
-            requestPromise
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateResults(data);
-                        showAlert('success', data.message);
-                    } else {
-                        showAlert('error', data.message);
-                    }
-                })
-                .catch(error => {
-                    showAlert('error', '处理失败: ' + error.message);
-                })
-                .finally(() => {
-                    if (showLoading) {
-                        loading.classList.remove('active');
-                        setButtonLoading(false);
-                    }
-                });
-        }
-
-        function loadMiddleburyScenes() {
-            fetch('/middlebury/list')
-                .then(response => response.json())
-                .then(data => {
-                    if (!data.success) {
-                        showAlert('error', data.message || '加载场景失败');
-                        return;
-                    }
-                    const scenes = data.scenes || [];
-                    middleburySelect.innerHTML = '<option value="">请选择数据集</option>';
-                    scenes.forEach(scene => {
-                        const option = document.createElement('option');
-                        option.value = scene;
-                        option.textContent = scene;
-                        middleburySelect.appendChild(option);
-                    });
-                    if (!scenes.length) {
-                        showAlert('error', '未检测到 Middlebury 数据集');
-                    }
-                })
-                .catch(error => {
-                    showAlert('error', '加载场景失败: ' + error.message);
-                });
-        }
-
-        function loadMiddleburyScene(scene) {
-            fetch('/middlebury/process', {
+        captureBtn.addEventListener('click', () => {
+            fetch('/camera/capture', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({scene: scene})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.success) {
-                    showAlert('error', data.message);
-                    return;
                 }
-                middleburyScene = data.scene;
-                middleburySize = {width: data.width, height: data.height};
-                middleburyLeftImg.src = data.images.left;
-                middleburyRightImg.src = data.images.right;
-                middleburyDispImg.src = data.images.disparity;
-                middleburyResults.classList.remove('hidden');
-                middleburyMeasurement.textContent = '点击左侧原图获取视差信息';
-            })
-            .catch(error => {
-                showAlert('error', '处理失败: ' + error.message);
-            });
-        }
-
-        // 添加图像点击事件监听器
-        function addClickListeners() {
-            const clickableImages = document.querySelectorAll('.clickable-image');
-            clickableImages.forEach(img => {
-                img.addEventListener('click', function(event) {
-                    const rect = this.getBoundingClientRect();
-                    const x = Math.round(event.clientX - rect.left);
-                    const y = Math.round(event.clientY - rect.top);
-
-                    // 计算相对于原图的坐标
-                    const scaleX = 640 / rect.width;
-                    const scaleY = 480 / rect.height;
-                    const actualX = Math.round(x * scaleX);
-                    const actualY = Math.round(y * scaleY);
-
-                    getDepthInfo(actualX, actualY, x, y, this);
-                });
-            });
-        }
-
-        middleburyLeftImg.addEventListener('click', function(event) {
-            if (!middleburyScene) {
-                return;
-            }
-            const rect = this.getBoundingClientRect();
-            const x = Math.round(event.clientX - rect.left);
-            const y = Math.round(event.clientY - rect.top);
-            const scaleX = middleburySize.width / rect.width;
-            const scaleY = middleburySize.height / rect.height;
-            const actualX = Math.round(x * scaleX);
-            const actualY = Math.round(y * scaleY);
-
-            fetch('/middlebury/get_disparity', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({scene: middleburyScene, x: actualX, y: actualY})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.success) {
-                    showAlert('error', data.message);
-                    return;
-                }
-                const infoDiv = middleburyLeftImg.parentElement.querySelector('.depth-info');
-                if (infoDiv) {
-                    infoDiv.style.left = x + 'px';
-                    infoDiv.style.top = y + 'px';
-                    infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>视差: ${data.disparity.toFixed(2)}`;
-                    infoDiv.style.display = 'block';
-                    setTimeout(() => {
-                        infoDiv.style.display = 'none';
-                    }, 3000);
-                }
-                middleburyMeasurement.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
-                        <div class="bg-blue-50 p-4 rounded-lg">
-                            <h4 class="font-semibold text-blue-600">像素坐标</h4>
-                            <p class="text-2xl font-bold">(${data.x}, ${data.y})</p>
-                        </div>
-                        <div class="bg-purple-50 p-4 rounded-lg">
-                            <h4 class="font-semibold text-purple-600">视差值</h4>
-                            <p class="text-2xl font-bold">${data.disparity.toFixed(2)}</p>
-                        </div>
-                    </div>
-                `;
-            })
-            .catch(error => {
-                showAlert('error', '获取视差失败: ' + error.message);
-            });
-        });
-
-        // 获取深度信息
-        function getDepthInfo(x, y, displayX, displayY, imgElement) {
-            fetch('/get_depth', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({x: x, y: y})
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // 显示深度信息
-                    const infoDiv = imgElement.parentElement.querySelector('.depth-info');
-                    if (infoDiv) {
-                        infoDiv.style.left = displayX + 'px';
-                        infoDiv.style.top = displayY + 'px';
-                        infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>深度: ${data.depth.toFixed(1)}mm<br>视差: ${data.disparity.toFixed(1)}`;
-                        infoDiv.style.display = 'block';
-
-                        // 3秒后隐藏
-                        setTimeout(() => {
-                            infoDiv.style.display = 'none';
-                        }, 3000);
-                    }
-
-                    // 更新测距信息区域
-                    const measurementDiv = document.getElementById('depthMeasurement');
-                    measurementDiv.innerHTML = `
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                            <div class="bg-blue-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-blue-600">像素坐标</h4>
-                                <p class="text-2xl font-bold">(${data.x}, ${data.y})</p>
-                            </div>
-                            <div class="bg-green-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-green-600">深度距离</h4>
-                                <p class="text-2xl font-bold">${data.depth.toFixed(1)} mm</p>
-                            </div>
-                            <div class="bg-purple-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-purple-600">视差值</h4>
-                                <p class="text-2xl font-bold">${data.disparity.toFixed(1)}</p>
-                            </div>
-                        </div>
-                    `;
+                    captureImage.src = data.image;
+                    captureHint.textContent = '抓拍成功';
                 } else {
                     showAlert('error', data.message);
                 }
             })
             .catch(error => {
-                showAlert('error', '获取深度信息失败: ' + error.message);
+                showAlert('error', '抓拍失败: ' + error.message);
             });
-        }
+        });
+
 
         // 显示提示消息
         function showAlert(type, message) {
@@ -625,8 +151,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            runProcess(true);
-            loadMiddleburyScenes();
+            captureHint.textContent = '点击“抓拍当前帧”保存画面。';
         });
     </script>
 </body>
