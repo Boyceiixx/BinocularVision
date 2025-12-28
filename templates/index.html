@@ -383,58 +383,58 @@
             document.getElementById('disparityImg').src = data.images.disparity;
             document.getElementById('depthImg').src = data.images.depth;
 
-        cameraStream.src = '/camera/stream';
+            cameraStream.src = '/camera/stream';
 
-        captureBtn.addEventListener('click', () => {
-            fetch('/camera/capture', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    captureImage.src = data.image;
-                    captureHint.textContent = '抓拍成功';
-                } else {
-                    showAlert('error', data.message);
-                }
-            })
-            .catch(error => {
-                showAlert('error', '抓拍失败: ' + error.message);
-            });
-        });
-
-        // 获取深度信息
-        function getDepthInfo(x, y, displayX, displayY, imgElement) {
-            fetch('/get_depth', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({x: x, y: y})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // 显示深度信息
-                    const infoDiv = imgElement.parentElement.querySelector('.depth-info');
-                    if (infoDiv) {
-                        infoDiv.style.left = displayX + 'px';
-                        infoDiv.style.top = displayY + 'px';
-                        infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>深度: ${data.depth.toFixed(1)}mm<br>视差: ${data.disparity.toFixed(1)}`;
-                        infoDiv.style.display = 'block';
-
-                        // 3秒后隐藏
-                        setTimeout(() => {
-                            infoDiv.style.display = 'none';
-                        }, 3000);
+            captureBtn.addEventListener('click', () => {
+                fetch('/camera/capture', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            captureImage.src = data.image;
+                            captureHint.textContent = '抓拍成功';
+                        } else {
+                            showAlert('error', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        showAlert('error', '抓拍失败: ' + error.message);
+                    });
+            });
 
-                    // 更新测距信息区域
-                    const measurementDiv = document.getElementById('depthMeasurement');
-                    measurementDiv.innerHTML = `
+            // 获取深度信息
+            function getDepthInfo(x, y, displayX, displayY, imgElement) {
+                fetch('/get_depth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({x: x, y: y})
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // 显示深度信息
+                            const infoDiv = imgElement.parentElement.querySelector('.depth-info');
+                            if (infoDiv) {
+                                infoDiv.style.left = displayX + 'px';
+                                infoDiv.style.top = displayY + 'px';
+                                infoDiv.innerHTML = `坐标: (${data.x}, ${data.y})<br>深度: ${data.depth.toFixed(1)}mm<br>视差: ${data.disparity.toFixed(1)}`;
+                                infoDiv.style.display = 'block';
+
+                                // 3秒后隐藏
+                                setTimeout(() => {
+                                    infoDiv.style.display = 'none';
+                                }, 3000);
+                            }
+
+                            // 更新测距信息区域
+                            const measurementDiv = document.getElementById('depthMeasurement');
+                            measurementDiv.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                             <div class="bg-blue-50 p-4 rounded-lg">
                                 <h4 class="font-semibold text-blue-600">像素坐标</h4>
@@ -450,42 +450,43 @@
                             </div>
                         </div>
                     `;
-                } else {
-                    showAlert('error', data.message);
-                }
-            })
-            .catch(error => {
-                showAlert('error', '获取深度信息失败: ' + error.message);
-            });
-        }
+                        } else {
+                            showAlert('error', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        showAlert('error', '获取深度信息失败: ' + error.message);
+                    });
+            }
 
-        // 显示提示消息
-        function showAlert(type, message) {
-            const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
-            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            // 显示提示消息
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+                const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
 
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert ${alertClass} fixed top-4 right-4 w-auto max-w-md z-50`;
-            alertDiv.innerHTML = `
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert ${alertClass} fixed top-4 right-4 w-auto max-w-md z-50`;
+                alertDiv.innerHTML = `
                 <i class="fas ${icon}"></i>
                 <span>${message}</span>
             `;
 
-            document.body.appendChild(alertDiv);
+                document.body.appendChild(alertDiv);
 
-            // 3秒后移除提示
-            setTimeout(() => {
-                alertDiv.remove();
-            }, 3000);
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            if (cameraStream) {
-                cameraStream.src = '/camera/stream';
+                // 3秒后移除提示
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 3000);
             }
-            runProcess(true);
-            captureHint.textContent = '点击“抓拍当前帧”保存画面。';
-        });
+
+            window.addEventListener('DOMContentLoaded', () => {
+                if (cameraStream) {
+                    cameraStream.src = '/camera/stream';
+                }
+                runProcess(true);
+                captureHint.textContent = '点击“抓拍当前帧”保存画面。';
+            });
+        }
     </script>
 </body>
 </html>
