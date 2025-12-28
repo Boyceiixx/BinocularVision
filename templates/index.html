@@ -380,6 +380,47 @@
                 : '<i class="fas fa-play mr-2"></i>开始演示';
         }
 
+        function runProcess(shouldAlert) {
+            setButtonLoading(true);
+
+            const leftFile = leftUpload.files[0];
+            const rightFile = rightUpload.files[0];
+
+            let url = '/process';
+            let fetchOptions = { method: 'POST' };
+
+            if (leftFile && rightFile) {
+                const formData = new FormData();
+                formData.append('left_image', leftFile);
+                formData.append('right_image', rightFile);
+                url = '/upload_process';
+                fetchOptions.body = formData;
+            }
+
+            fetch(url, fetchOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateResults(data);
+                        if (shouldAlert) {
+                            showAlert('success', data.message || '处理完成');
+                        }
+                    } else {
+                        if (shouldAlert) {
+                            showAlert('error', data.message || '处理失败');
+                        }
+                    }
+                })
+                .catch(error => {
+                    if (shouldAlert) {
+                        showAlert('error', '处理失败: ' + error.message);
+                    }
+                })
+                .finally(() => {
+                    setButtonLoading(false);
+                });
+        }
+
         function updateResults(data) {
             document.getElementById('leftImg').src = data.images.left;
             document.getElementById('rightImg').src = data.images.right;
@@ -389,27 +430,6 @@
             document.getElementById('depthImg').src = data.images.depth;
 
             cameraStream.src = '/camera/stream';
-
-            captureBtn.addEventListener('click', () => {
-                fetch('/camera/capture', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            captureImage.src = data.image;
-                            captureHint.textContent = '抓拍成功';
-                        } else {
-                            showAlert('error', data.message);
-                        }
-                    })
-                    .catch(error => {
-                        showAlert('error', '抓拍失败: ' + error.message);
-                    });
-            });
 
             // 获取深度信息
             function getDepthInfo(x, y, displayX, displayY, imgElement) {
@@ -463,15 +483,15 @@
                         showAlert('error', '获取深度信息失败: ' + error.message);
                     });
             }
-
-            window.addEventListener('DOMContentLoaded', () => {
-                if (cameraStream) {
-                    cameraStream.src = '/camera/stream';
-                }
-                runProcess(true);
-                captureHint.textContent = '点击“抓拍当前帧”保存画面。';
-            });
         }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (cameraStream) {
+                cameraStream.src = '/camera/stream';
+            }
+            runProcess(true);
+            captureHint.textContent = '点击“抓拍当前帧”保存画面。';
+        });
     </script>
 </body>
 </html>
