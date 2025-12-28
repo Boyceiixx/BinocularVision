@@ -10,7 +10,6 @@ import base64
 from flask import Flask, render_template, request, jsonify, Response
 from core import camera_params, stereo_matcher
 from camera_stream import get_camera_frames, build_stream_url
-from xiaomi_stream import get_xiaomi_frames
 import json
 
 app = Flask(__name__)
@@ -281,7 +280,6 @@ class MiddleburyDemo:
 demo = StereoVisionDemo()
 middlebury_demo = MiddleburyDemo()
 latest_camera_frame = None
-latest_xiaomi_frame = None
 CAMERA_DISPARITY_SHIFT = 8
 
 
@@ -518,40 +516,9 @@ def _camera_frame_generator():
                b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
 
 
-def _render_error_frame(message, size=(640, 480)):
-    width, height = size
-    frame = np.zeros((height, width, 3), dtype=np.uint8)
-    cv2.putText(frame, message, (20, height // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-    return frame
-
-
-def _xiaomi_frame_generator():
-    global latest_xiaomi_frame
-    try:
-        frames = get_xiaomi_frames()
-        for frame in frames:
-            latest_xiaomi_frame = frame
-            success, buffer = cv2.imencode(".jpg", frame)
-            if not success:
-                continue
-            yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
-    except Exception as exc:
-        error_frame = _render_error_frame(str(exc))
-        success, buffer = cv2.imencode(".jpg", error_frame)
-        if success:
-            yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
-
-
 @app.route("/camera/stream")
 def camera_stream():
     return Response(_camera_frame_generator(), mimetype="multipart/x-mixed-replace; boundary=frame")
-
-
-@app.route("/camera/xiaomi/stream")
-def xiaomi_camera_stream():
-    return Response(_xiaomi_frame_generator(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
 @app.route("/camera/capture", methods=["POST"])
@@ -575,27 +542,6 @@ def camera_capture():
     })
 
 
-@app.route("/camera/xiaomi/capture", methods=["POST"])
-def xiaomi_camera_capture():
-    global latest_xiaomi_frame
-    if latest_xiaomi_frame is None:
-        return jsonify({
-            "success": False,
-            "message": "尚未获取到小米摄像头帧，请先打开视频流"
-        })
-    success, buffer = cv2.imencode(".jpg", latest_xiaomi_frame)
-    if not success:
-        return jsonify({
-            "success": False,
-            "message": "小米摄像头抓拍失败"
-        })
-    img_str = base64.b64encode(buffer).decode()
-    return jsonify({
-        "success": True,
-        "image": f"data:image/jpeg;base64,{img_str}"
-    })
-
-
 def _shift_frame(frame, shift_pixels):
     height, width = frame.shape[:2]
     shifted = np.zeros_like(frame)
@@ -609,21 +555,14 @@ def _shift_frame(frame, shift_pixels):
 
 @app.route("/camera/capture_disparity", methods=["POST"])
 def camera_capture_disparity():
-    global latest_camera_frame, latest_xiaomi_frame
+    global latest_camera_frame
     if latest_camera_frame is None:
         return jsonify({
             "success": False,
             "message": "尚未获取到摄像头帧，请先打开视频流"
         })
     left = latest_camera_frame
-    right = latest_xiaomi_frame
-    message = "已生成测试视差图（单摄像头模拟）"
-    if right is None:
-        right = _shift_frame(left, CAMERA_DISPARITY_SHIFT)
-    else:
-        if left.shape[:2] != right.shape[:2]:
-            right = cv2.resize(right, (left.shape[1], left.shape[0]))
-        message = "已生成视差图（双摄像头示例，未标定）"
+    right = _shift_frame(left, CAMERA_DISPARITY_SHIFT)
     gray_left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
     disparity = stereo_matcher.get_simple_disparity(gray_left, gray_right)
@@ -638,7 +577,7 @@ def camera_capture_disparity():
     return jsonify({
         "success": True,
         "image": f"data:image/jpeg;base64,{img_str}",
-        "message": message
+        "message": "已生成测试视差图（单摄像头模拟）"
     })
 
 

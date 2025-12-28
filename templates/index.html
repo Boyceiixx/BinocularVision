@@ -90,41 +90,23 @@
                             <i class="fas fa-camera mr-2"></i>
                             抓拍当前帧
                         </button>
-                        <button id="captureXiaomiBtn" class="btn btn-primary">
-                            <i class="fas fa-camera mr-2"></i>
-                            抓拍小米摄像头
-                        </button>
                         <button id="captureDisparityBtn" class="btn btn-outline">
                             <i class="fas fa-wave-square mr-2"></i>
                             生成测试视差
                         </button>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div>
-                        <h4 class="text-lg font-semibold text-blue-600 mb-2">实时画面（主摄像头）</h4>
+                        <h4 class="text-lg font-semibold text-blue-600 mb-2">实时画面</h4>
                         <div class="image-container">
                             <img id="cameraStream" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="摄像头实时画面">
                         </div>
                     </div>
                     <div>
-                        <h4 class="text-lg font-semibold text-green-600 mb-2">实时画面（小米摄像头）</h4>
-                        <div class="image-container">
-                            <img id="xiaomiCameraStream" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="小米摄像头实时画面">
-                        </div>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                    <div>
-                        <h4 class="text-lg font-semibold text-blue-600 mb-2">抓拍结果（主摄像头）</h4>
+                        <h4 class="text-lg font-semibold text-green-600 mb-2">抓拍结果</h4>
                         <div class="image-container">
                             <img id="captureImage" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="抓拍图像">
-                        </div>
-                    </div>
-                    <div>
-                        <h4 class="text-lg font-semibold text-green-600 mb-2">抓拍结果（小米摄像头）</h4>
-                        <div class="image-container">
-                            <img id="xiaomiCaptureImage" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="小米抓拍图像">
                         </div>
                     </div>
                     <div>
@@ -136,9 +118,6 @@
                 </div>
                 <p id="captureHint" class="text-sm text-gray-500 mt-3">
                     抓拍基于主摄像头实时流；测试视差默认单摄像头模拟。
-                </p>
-                <p id="xiaomiCaptureHint" class="text-sm text-gray-500 mt-1">
-                    小米摄像头需通过 ha_xiaomi_home 获取视频流。
                 </p>
             </div>
         </div>
@@ -299,15 +278,11 @@
         const rightFileName = document.getElementById('rightFileName');
         const resetBtn = document.getElementById('resetBtn');
         const captureBtn = document.getElementById('captureBtn');
-        const captureXiaomiBtn = document.getElementById('captureXiaomiBtn');
         const captureDisparityBtn = document.getElementById('captureDisparityBtn');
         const cameraStream = document.getElementById('cameraStream');
-        const xiaomiCameraStream = document.getElementById('xiaomiCameraStream');
         const captureImage = document.getElementById('captureImage');
-        const xiaomiCaptureImage = document.getElementById('xiaomiCaptureImage');
         const captureDisparityImage = document.getElementById('captureDisparityImage');
         const captureHint = document.getElementById('captureHint');
-        const xiaomiCaptureHint = document.getElementById('xiaomiCaptureHint');
 
         leftUpload.addEventListener('change', () => {
             const leftFile = leftUpload.files[0];
@@ -345,29 +320,6 @@
             })
             .catch(error => {
                 showAlert('error', '抓拍失败: ' + error.message);
-            });
-            });
-        }
-
-        if (captureXiaomiBtn) {
-            captureXiaomiBtn.addEventListener('click', () => {
-            fetch('/camera/xiaomi/capture', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    xiaomiCaptureImage.src = data.image;
-                    xiaomiCaptureHint.textContent = '小米抓拍成功';
-                } else {
-                    showAlert('error', data.message);
-                }
-            })
-            .catch(error => {
-                showAlert('error', '小米抓拍失败: ' + error.message);
             });
             });
         }
@@ -437,9 +389,6 @@
             document.getElementById('depthImg').src = data.images.depth;
 
             cameraStream.src = '/camera/stream';
-            if (xiaomiCameraStream) {
-                xiaomiCameraStream.src = '/camera/xiaomi/stream';
-            }
 
             captureBtn.addEventListener('click', () => {
                 fetch('/camera/capture', {
@@ -519,12 +468,8 @@
                 if (cameraStream) {
                     cameraStream.src = '/camera/stream';
                 }
-                if (xiaomiCameraStream) {
-                    xiaomiCameraStream.src = '/camera/xiaomi/stream';
-                }
                 runProcess(true);
                 captureHint.textContent = '点击“抓拍当前帧”保存画面。';
-                xiaomiCaptureHint.textContent = '点击“抓拍小米摄像头”保存画面。';
             });
         }
     </script>
