@@ -386,10 +386,12 @@
         const captureHint = document.getElementById('captureHint');
 
         leftUpload.addEventListener('change', () => {
-            leftFileName.textContent = leftUpload.files[0]?.name || '未选择文件，使用默认示例';
+            const leftFile = leftUpload.files[0];
+            leftFileName.textContent = leftFile ? leftFile.name : '未选择文件，使用默认示例';
         });
         rightUpload.addEventListener('change', () => {
-            rightFileName.textContent = rightUpload.files[0]?.name || '未选择文件，使用默认示例';
+            const rightFile = rightUpload.files[0];
+            rightFileName.textContent = rightFile ? rightFile.name : '未选择文件，使用默认示例';
         });
 
         resetBtn.addEventListener('click', () => {
@@ -400,7 +402,8 @@
             runProcess(false);
         });
 
-        captureBtn.addEventListener('click', () => {
+        if (captureBtn) {
+            captureBtn.addEventListener('click', () => {
             fetch('/camera/capture', {
                 method: 'POST',
                 headers: {
@@ -419,9 +422,11 @@
             .catch(error => {
                 showAlert('error', '抓拍失败: ' + error.message);
             });
-        });
+            });
+        }
 
-        captureDisparityBtn.addEventListener('click', () => {
+        if (captureDisparityBtn) {
+            captureDisparityBtn.addEventListener('click', () => {
             fetch('/camera/capture_disparity', {
                 method: 'POST',
                 headers: {
@@ -440,7 +445,8 @@
             .catch(error => {
                 showAlert('error', '视差生成失败: ' + error.message);
             });
-        });
+            });
+        }
 
         // 处理按钮点击事件
         document.getElementById('processBtn').addEventListener('click', function() {
@@ -622,7 +628,9 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            cameraStream.src = '/camera/stream';
+            if (cameraStream) {
+                cameraStream.src = '/camera/stream';
+            }
             runProcess(true);
         });
     </script>
