@@ -3,6 +3,7 @@
 双目三维重建系统Web演示界面
 """
 import os
+import re
 import cv2
 import numpy as np
 import base64
@@ -137,8 +138,120 @@ class StereoVisionDemo:
         return self.last_results
 
 
+class MiddleburyDemo:
+    """Middlebury 2006 双目数据集演示（2 views）"""
+
+    def __init__(self, data_root="data"):
+        self.data_root = data_root
+        self.last_results = {}
+
+    def list_scenes(self):
+        """查找包含 view1.png/view5.png 的场景目录"""
+        scenes = []
+        if not os.path.isdir(self.data_root):
+            return scenes
+        for entry in sorted(os.listdir(self.data_root)):
+            scene_dir = os.path.join(self.data_root, entry)
+            if not os.path.isdir(scene_dir):
+                continue
+            left_path = os.path.join(scene_dir, "view1.png")
+            right_path = os.path.join(scene_dir, "view5.png")
+            if os.path.exists(left_path) and os.path.exists(right_path):
+                scenes.append(entry)
+        return scenes
+
+    def parse_calibration(self, calib_path):
+        """解析 Middlebury calib.txt"""
+        if not os.path.exists(calib_path):
+            return None
+        calib = {}
+        with open(calib_path, "r", encoding="utf-8") as file:
+            for line in file:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = [part.strip() for part in line.split("=", 1)]
+                if value.startswith("[") and value.endswith("]"):
+                    nums = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", value)
+                    data = np.array([float(n) for n in nums], dtype=np.float32)
+                    if data.size == 9:
+                        calib[key] = data.reshape(3, 3)
+                    else:
+                        calib[key] = data
+                else:
+                    try:
+                        calib[key] = float(value)
+                    except ValueError:
+                        calib[key] = value
+        return calib
+
+    def get_scene_paths(self, scene_name):
+        scene_dir = os.path.join(self.data_root, scene_name)
+        left_path = os.path.join(scene_dir, "view1.png")
+        right_path = os.path.join(scene_dir, "view5.png")
+        calib_path = os.path.join(scene_dir, "calib.txt")
+        return scene_dir, left_path, right_path, calib_path
+
+    def process_scene(self, scene_name):
+        scene_dir, left_path, right_path, calib_path = self.get_scene_paths(scene_name)
+        left_img = cv2.imread(left_path, cv2.IMREAD_COLOR)
+        right_img = cv2.imread(right_path, cv2.IMREAD_COLOR)
+        if left_img is None or right_img is None:
+            raise ValueError("无法读取 Middlebury 图像")
+
+        if left_img.shape != right_img.shape:
+            raise ValueError("左右图像尺寸不一致")
+
+        calib = self.parse_calibration(calib_path)
+        if calib is None:
+            raise ValueError("缺少 calib.txt 标定文件")
+
+        gray_left = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
+        gray_right = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
+
+        num_disp = int(calib.get("ndisp", 128))
+        if num_disp % 16 != 0:
+            num_disp = (num_disp // 16 + 1) * 16
+        min_disp = int(calib.get("vmin", 0))
+
+        stereo = cv2.StereoSGBM_create(
+            minDisparity=min_disp,
+            numDisparities=num_disp,
+            blockSize=5,
+            P1=8 * 3 * 5 ** 2,
+            P2=32 * 3 * 5 ** 2,
+            disp12MaxDiff=1,
+            uniquenessRatio=10,
+            speckleWindowSize=100,
+            speckleRange=32
+        )
+        disparity = stereo.compute(gray_left, gray_right).astype(np.float32) / 16.0
+
+        disparity_vis = stereo_matcher.get_visual_disparity(disparity)
+
+        results = {
+            "left": left_img,
+            "right": right_img,
+            "disparity": disparity_vis,
+            "disparity_raw": disparity,
+            "width": left_img.shape[1],
+            "height": left_img.shape[0],
+            "scene": scene_name
+        }
+        self.last_results[scene_name] = results
+        return results
+
+    def get_or_create_results(self, scene_name):
+        if scene_name in self.last_results:
+            return self.last_results[scene_name]
+        return self.process_scene(scene_name)
+
+
 # 创建全局演示实例
 demo = StereoVisionDemo()
+middlebury_demo = MiddleburyDemo()
 
 
 @app.route('/')
@@ -255,6 +368,83 @@ def get_depth():
         return jsonify({
             'success': False,
             'message': f'获取深度失败: {str(e)}'
+        })
+
+
+@app.route('/middlebury/list', methods=['GET'])
+def middlebury_list():
+    """获取 Middlebury 场景列表"""
+    scenes = middlebury_demo.list_scenes()
+    return jsonify({
+        'success': True,
+        'scenes': scenes
+    })
+
+
+@app.route('/middlebury/process', methods=['POST'])
+def middlebury_process():
+    """处理 Middlebury 双目图像"""
+    try:
+        data = request.json or {}
+        scene = data.get('scene')
+        if not scene:
+            return jsonify({
+                'success': False,
+                'message': '未指定场景'
+            })
+        results = middlebury_demo.process_scene(scene)
+        response = {}
+        for key, img in results.items():
+            if key not in ['disparity_raw', 'width', 'height', 'scene']:
+                response[key] = demo.image_to_base64(img)
+        return jsonify({
+            'success': True,
+            'images': response,
+            'scene': scene,
+            'width': results['width'],
+            'height': results['height'],
+            'message': 'Middlebury 视差计算完成！'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'处理失败: {str(e)}'
+        })
+
+
+@app.route('/middlebury/get_disparity', methods=['POST'])
+def middlebury_get_disparity():
+    """获取 Middlebury 指定像素的视差"""
+    try:
+        data = request.json or {}
+        scene = data.get('scene')
+        x = int(data.get('x', 0))
+        y = int(data.get('y', 0))
+        if not scene:
+            return jsonify({
+                'success': False,
+                'message': '未指定场景'
+            })
+
+        results = middlebury_demo.get_or_create_results(scene)
+        disparity_raw = results['disparity_raw']
+        if 0 <= y < disparity_raw.shape[0] and 0 <= x < disparity_raw.shape[1]:
+            value = float(disparity_raw[y, x])
+            return jsonify({
+                'success': True,
+                'x': x,
+                'y': y,
+                'disparity': value,
+                'message': f'坐标({x}, {y})处视差: {value:.2f}'
+            })
+        return jsonify({
+            'success': False,
+            'message': '坐标超出图像范围'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取视差失败: {str(e)}'
         })
 
 
