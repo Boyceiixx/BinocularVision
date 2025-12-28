@@ -145,6 +145,10 @@ class MiddleburyDemo:
         preferred_root = os.path.join(data_root, "two-views")
         self.data_root = preferred_root if os.path.isdir(preferred_root) else data_root
         self.last_results = {}
+        self.default_dmin = 0
+        self.default_ndisp = 256
+        self.default_baseline = 0.10
+        self.default_focal = 1.0
 
     def list_scenes(self):
         """查找包含 view1.png/view5.png 的场景目录"""
@@ -207,17 +211,20 @@ class MiddleburyDemo:
         if left_img.shape != right_img.shape:
             raise ValueError("左右图像尺寸不一致")
 
-        calib = self.parse_calibration(calib_path)
-        if calib is None:
-            raise ValueError("缺少 calib.txt 标定文件")
+        calib = self.parse_calibration(calib_path) or {}
+        dmin = int(calib.get("dmin", calib.get("vmin", self.default_dmin)))
+        num_disp = int(calib.get("ndisp", self.default_ndisp))
+        baseline = float(calib.get("baseline", self.default_baseline))
+        focal = float(calib.get("f", self.default_focal))
+        if num_disp <= 0:
+            num_disp = self.default_ndisp
 
         gray_left = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
         gray_right = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
 
-        num_disp = int(calib.get("ndisp", 128))
         if num_disp % 16 != 0:
             num_disp = (num_disp // 16 + 1) * 16
-        min_disp = int(calib.get("vmin", 0))
+        min_disp = 0
 
         stereo = cv2.StereoSGBM_create(
             minDisparity=min_disp,
@@ -231,6 +238,8 @@ class MiddleburyDemo:
             speckleRange=32
         )
         disparity = stereo.compute(gray_left, gray_right).astype(np.float32) / 16.0
+        if dmin != 0:
+            disparity = disparity + float(dmin)
 
         disparity_vis = stereo_matcher.get_visual_disparity(disparity)
 
@@ -241,6 +250,9 @@ class MiddleburyDemo:
             "disparity_raw": disparity,
             "width": left_img.shape[1],
             "height": left_img.shape[0],
+            "dmin": dmin,
+            "baseline": baseline,
+            "focal": focal,
             "scene": scene_name
         }
         self.last_results[scene_name] = results
