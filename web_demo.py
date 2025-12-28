@@ -3,14 +3,27 @@
 双目三维重建系统Web演示界面
 """
 import os
+import re
 import cv2
 import numpy as np
 import base64
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from core import camera_params, stereo_matcher
+from camera_stream import get_camera_frames, build_stream_url
 import json
 
 app = Flask(__name__)
+
+CAMERA_CONFIG = {
+    "ip": "172.16.0.108",
+    "port": 554,
+    "username": "",
+    "password": "",
+    "protocol": "rtsp",
+    "stream_path": "11",
+    "width": None,
+    "height": None,
+}
 
 
 class StereoVisionDemo:
@@ -137,8 +150,137 @@ class StereoVisionDemo:
         return self.last_results
 
 
+class MiddleburyDemo:
+    """Middlebury 2006 双目数据集演示（2 views）"""
+
+    def __init__(self, data_root="data"):
+        preferred_root = os.path.join(data_root, "two-views")
+        self.data_root = preferred_root if os.path.isdir(preferred_root) else data_root
+        self.last_results = {}
+        self.default_dmin = 0
+        self.default_ndisp = 256
+        self.default_baseline = 0.10
+        self.default_focal = 1.0
+
+    def list_scenes(self):
+        """查找包含 view1.png/view5.png 的场景目录"""
+        scenes = []
+        if not os.path.isdir(self.data_root):
+            return scenes
+        for entry in sorted(os.listdir(self.data_root)):
+            scene_dir = os.path.join(self.data_root, entry)
+            if not os.path.isdir(scene_dir):
+                continue
+            left_path = os.path.join(scene_dir, "view1.png")
+            right_path = os.path.join(scene_dir, "view5.png")
+            if os.path.exists(left_path) and os.path.exists(right_path):
+                scenes.append(entry)
+        return scenes
+
+    def parse_calibration(self, calib_path):
+        """解析 Middlebury calib.txt"""
+        if not os.path.exists(calib_path):
+            return None
+        calib = {}
+        with open(calib_path, "r", encoding="utf-8") as file:
+            for line in file:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = [part.strip() for part in line.split("=", 1)]
+                if value.startswith("[") and value.endswith("]"):
+                    nums = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", value)
+                    data = np.array([float(n) for n in nums], dtype=np.float32)
+                    if data.size == 9:
+                        calib[key] = data.reshape(3, 3)
+                    else:
+                        calib[key] = data
+                else:
+                    try:
+                        calib[key] = float(value)
+                    except ValueError:
+                        calib[key] = value
+        return calib
+
+    def get_scene_paths(self, scene_name):
+        scene_dir = os.path.normpath(os.path.join(self.data_root, scene_name))
+        if not os.path.isdir(scene_dir) and os.path.isdir(scene_name):
+            scene_dir = scene_name
+        left_path = os.path.join(scene_dir, "view1.png")
+        right_path = os.path.join(scene_dir, "view5.png")
+        calib_path = os.path.join(scene_dir, "calib.txt")
+        return scene_dir, left_path, right_path, calib_path
+
+    def process_scene(self, scene_name):
+        scene_dir, left_path, right_path, calib_path = self.get_scene_paths(scene_name)
+        left_img = cv2.imread(left_path, cv2.IMREAD_COLOR)
+        right_img = cv2.imread(right_path, cv2.IMREAD_COLOR)
+        if left_img is None or right_img is None:
+            raise ValueError("无法读取 Middlebury 图像")
+
+        if left_img.shape != right_img.shape:
+            raise ValueError("左右图像尺寸不一致")
+
+        calib = self.parse_calibration(calib_path) or {}
+        dmin = int(calib.get("dmin", calib.get("vmin", self.default_dmin)))
+        num_disp = int(calib.get("ndisp", self.default_ndisp))
+        baseline = float(calib.get("baseline", self.default_baseline))
+        focal = float(calib.get("f", self.default_focal))
+        if num_disp <= 0:
+            num_disp = self.default_ndisp
+
+        gray_left = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
+        gray_right = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
+
+        if num_disp % 16 != 0:
+            num_disp = (num_disp // 16 + 1) * 16
+        min_disp = 0
+
+        stereo = cv2.StereoSGBM_create(
+            minDisparity=min_disp,
+            numDisparities=num_disp,
+            blockSize=5,
+            P1=8 * 3 * 5 ** 2,
+            P2=32 * 3 * 5 ** 2,
+            disp12MaxDiff=1,
+            uniquenessRatio=10,
+            speckleWindowSize=100,
+            speckleRange=32
+        )
+        disparity = stereo.compute(gray_left, gray_right).astype(np.float32) / 16.0
+        if dmin != 0:
+            disparity = disparity + float(dmin)
+
+        disparity_vis = stereo_matcher.get_visual_disparity(disparity)
+
+        results = {
+            "left": left_img,
+            "right": right_img,
+            "disparity": disparity_vis,
+            "disparity_raw": disparity,
+            "width": left_img.shape[1],
+            "height": left_img.shape[0],
+            "dmin": dmin,
+            "baseline": baseline,
+            "focal": focal,
+            "scene": scene_name
+        }
+        self.last_results[scene_name] = results
+        return results
+
+    def get_or_create_results(self, scene_name):
+        if scene_name in self.last_results:
+            return self.last_results[scene_name]
+        return self.process_scene(scene_name)
+
+
 # 创建全局演示实例
 demo = StereoVisionDemo()
+middlebury_demo = MiddleburyDemo()
+latest_camera_frame = None
+CAMERA_DISPARITY_SHIFT = 8
 
 
 @app.route('/')
@@ -258,6 +400,83 @@ def get_depth():
         })
 
 
+@app.route('/middlebury/list', methods=['GET'])
+def middlebury_list():
+    """获取 Middlebury 场景列表"""
+    scenes = middlebury_demo.list_scenes()
+    return jsonify({
+        'success': True,
+        'scenes': scenes
+    })
+
+
+@app.route('/middlebury/process', methods=['POST'])
+def middlebury_process():
+    """处理 Middlebury 双目图像"""
+    try:
+        data = request.json or {}
+        scene = data.get('scene')
+        if not scene:
+            return jsonify({
+                'success': False,
+                'message': '未指定场景'
+            })
+        results = middlebury_demo.process_scene(scene)
+        response = {}
+        for key, img in results.items():
+            if key not in ['disparity_raw', 'width', 'height', 'scene']:
+                response[key] = demo.image_to_base64(img)
+        return jsonify({
+            'success': True,
+            'images': response,
+            'scene': scene,
+            'width': results['width'],
+            'height': results['height'],
+            'message': 'Middlebury 视差计算完成！'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'处理失败: {str(e)}'
+        })
+
+
+@app.route('/middlebury/get_disparity', methods=['POST'])
+def middlebury_get_disparity():
+    """获取 Middlebury 指定像素的视差"""
+    try:
+        data = request.json or {}
+        scene = data.get('scene')
+        x = int(data.get('x', 0))
+        y = int(data.get('y', 0))
+        if not scene:
+            return jsonify({
+                'success': False,
+                'message': '未指定场景'
+            })
+
+        results = middlebury_demo.get_or_create_results(scene)
+        disparity_raw = results['disparity_raw']
+        if 0 <= y < disparity_raw.shape[0] and 0 <= x < disparity_raw.shape[1]:
+            value = float(disparity_raw[y, x])
+            return jsonify({
+                'success': True,
+                'x': x,
+                'y': y,
+                'disparity': value,
+                'message': f'坐标({x}, {y})处视差: {value:.2f}'
+            })
+        return jsonify({
+            'success': False,
+            'message': '坐标超出图像范围'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取视差失败: {str(e)}'
+        })
+
+
 def decode_uploaded_image(file_storage):
     """解析上传的图像文件"""
     file_bytes = np.frombuffer(file_storage.read(), np.uint8)
@@ -274,6 +493,92 @@ def resize_stereo_pair(left_img, right_img, target_size):
     if right_img.shape[:2] != (target_height, target_width):
         right_img = cv2.resize(right_img, (target_width, target_height))
     return left_img, right_img
+
+
+def _camera_frame_generator():
+    global latest_camera_frame
+    frames = get_camera_frames(
+        ip=CAMERA_CONFIG["ip"],
+        port=CAMERA_CONFIG["port"],
+        username=CAMERA_CONFIG["username"],
+        password=CAMERA_CONFIG["password"],
+        protocol=CAMERA_CONFIG["protocol"],
+        stream_path=CAMERA_CONFIG["stream_path"],
+        width=CAMERA_CONFIG["width"],
+        height=CAMERA_CONFIG["height"],
+    )
+    for frame in frames:
+        latest_camera_frame = frame
+        success, buffer = cv2.imencode(".jpg", frame)
+        if not success:
+            continue
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
+
+
+@app.route("/camera/stream")
+def camera_stream():
+    return Response(_camera_frame_generator(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
+@app.route("/camera/capture", methods=["POST"])
+def camera_capture():
+    global latest_camera_frame
+    if latest_camera_frame is None:
+        return jsonify({
+            "success": False,
+            "message": "尚未获取到摄像头帧，请先打开视频流"
+        })
+    success, buffer = cv2.imencode(".jpg", latest_camera_frame)
+    if not success:
+        return jsonify({
+            "success": False,
+            "message": "抓拍失败"
+        })
+    img_str = base64.b64encode(buffer).decode()
+    return jsonify({
+        "success": True,
+        "image": f"data:image/jpeg;base64,{img_str}"
+    })
+
+
+def _shift_frame(frame, shift_pixels):
+    height, width = frame.shape[:2]
+    shifted = np.zeros_like(frame)
+    if shift_pixels >= 0:
+        shifted[:, :-shift_pixels] = frame[:, shift_pixels:]
+    else:
+        shift_pixels = abs(shift_pixels)
+        shifted[:, shift_pixels:] = frame[:, :-shift_pixels]
+    return shifted
+
+
+@app.route("/camera/capture_disparity", methods=["POST"])
+def camera_capture_disparity():
+    global latest_camera_frame
+    if latest_camera_frame is None:
+        return jsonify({
+            "success": False,
+            "message": "尚未获取到摄像头帧，请先打开视频流"
+        })
+    left = latest_camera_frame
+    right = _shift_frame(left, CAMERA_DISPARITY_SHIFT)
+    gray_left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
+    gray_right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
+    disparity = stereo_matcher.get_simple_disparity(gray_left, gray_right)
+    disparity_vis = stereo_matcher.get_visual_disparity(disparity)
+    success, buffer = cv2.imencode(".jpg", disparity_vis)
+    if not success:
+        return jsonify({
+            "success": False,
+            "message": "视差计算失败"
+        })
+    img_str = base64.b64encode(buffer).decode()
+    return jsonify({
+        "success": True,
+        "image": f"data:image/jpeg;base64,{img_str}",
+        "message": "已生成测试视差图（单摄像头模拟）"
+    })
 
 
 if __name__ == '__main__':

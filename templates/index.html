@@ -74,6 +74,51 @@
             </div>
         </div>
 
+        <!-- 摄像头实时流 -->
+        <div class="card bg-base-100 shadow-xl mb-8">
+            <div class="card-body">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                    <h3 class="card-title text-2xl">
+                        <i class="fas fa-video mr-2"></i>
+                        摄像头实时流
+                    </h3>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button id="captureBtn" class="btn btn-primary">
+                            <i class="fas fa-camera mr-2"></i>
+                            抓拍当前帧
+                        </button>
+                        <button id="captureDisparityBtn" class="btn btn-outline">
+                            <i class="fas fa-wave-square mr-2"></i>
+                            生成测试视差
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div>
+                        <h4 class="text-lg font-semibold text-blue-600 mb-2">实时画面</h4>
+                        <div class="image-container">
+                            <img id="cameraStream" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="摄像头实时画面">
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-semibold text-green-600 mb-2">抓拍结果</h4>
+                        <div class="image-container">
+                            <img id="captureImage" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="抓拍图像">
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-semibold text-purple-600 mb-2">测试视差图</h4>
+                        <div class="image-container">
+                            <img id="captureDisparityImage" class="w-full rounded-lg shadow-md border-2 border-purple-200" alt="测试视差图">
+                        </div>
+                    </div>
+                </div>
+                <p id="captureHint" class="text-sm text-gray-500 mt-3">
+                    抓拍基于实时流；测试视差为单摄像头模拟，仅用于流程验证。
+                </p>
+            </div>
+        </div>
+
         <!-- 输入与说明 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div class="card bg-base-100 shadow-xl lg:col-span-2">
@@ -333,6 +378,12 @@
         const leftFileName = document.getElementById('leftFileName');
         const rightFileName = document.getElementById('rightFileName');
         const resetBtn = document.getElementById('resetBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const captureDisparityBtn = document.getElementById('captureDisparityBtn');
+        const cameraStream = document.getElementById('cameraStream');
+        const captureImage = document.getElementById('captureImage');
+        const captureDisparityImage = document.getElementById('captureDisparityImage');
+        const captureHint = document.getElementById('captureHint');
 
         leftUpload.addEventListener('change', () => {
             leftFileName.textContent = leftUpload.files[0]?.name || '未选择文件，使用默认示例';
@@ -347,6 +398,48 @@
             leftFileName.textContent = '未选择文件，使用默认示例';
             rightFileName.textContent = '未选择文件，使用默认示例';
             runProcess(false);
+        });
+
+        captureBtn.addEventListener('click', () => {
+            fetch('/camera/capture', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    captureImage.src = data.image;
+                    captureHint.textContent = '抓拍成功';
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', '抓拍失败: ' + error.message);
+            });
+        });
+
+        captureDisparityBtn.addEventListener('click', () => {
+            fetch('/camera/capture_disparity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    captureDisparityImage.src = data.image;
+                    captureHint.textContent = data.message || '视差生成完成';
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', '视差生成失败: ' + error.message);
+            });
         });
 
         // 处理按钮点击事件
@@ -529,6 +622,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            cameraStream.src = '/camera/stream';
             runProcess(true);
         });
     </script>
