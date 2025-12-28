@@ -280,6 +280,7 @@ class MiddleburyDemo:
 demo = StereoVisionDemo()
 middlebury_demo = MiddleburyDemo()
 latest_camera_frame = None
+CAMERA_DISPARITY_SHIFT = 8
 
 
 @app.route('/')
@@ -538,6 +539,45 @@ def camera_capture():
     return jsonify({
         "success": True,
         "image": f"data:image/jpeg;base64,{img_str}"
+    })
+
+
+def _shift_frame(frame, shift_pixels):
+    height, width = frame.shape[:2]
+    shifted = np.zeros_like(frame)
+    if shift_pixels >= 0:
+        shifted[:, :-shift_pixels] = frame[:, shift_pixels:]
+    else:
+        shift_pixels = abs(shift_pixels)
+        shifted[:, shift_pixels:] = frame[:, :-shift_pixels]
+    return shifted
+
+
+@app.route("/camera/capture_disparity", methods=["POST"])
+def camera_capture_disparity():
+    global latest_camera_frame
+    if latest_camera_frame is None:
+        return jsonify({
+            "success": False,
+            "message": "尚未获取到摄像头帧，请先打开视频流"
+        })
+    left = latest_camera_frame
+    right = _shift_frame(left, CAMERA_DISPARITY_SHIFT)
+    gray_left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
+    gray_right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
+    disparity = stereo_matcher.get_simple_disparity(gray_left, gray_right)
+    disparity_vis = stereo_matcher.get_visual_disparity(disparity)
+    success, buffer = cv2.imencode(".jpg", disparity_vis)
+    if not success:
+        return jsonify({
+            "success": False,
+            "message": "视差计算失败"
+        })
+    img_str = base64.b64encode(buffer).decode()
+    return jsonify({
+        "success": True,
+        "image": f"data:image/jpeg;base64,{img_str}",
+        "message": "已生成测试视差图（单摄像头模拟）"
     })
 
 
