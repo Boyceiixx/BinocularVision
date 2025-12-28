@@ -14,6 +14,9 @@
         }
         .image-container img {
             cursor: crosshair;
+            max-height: 360px;
+            width: 100%;
+            object-fit: contain;
         }
         .depth-info {
             position: absolute;
@@ -48,16 +51,16 @@
     </div>
 
     <!-- 主要内容 -->
-    <div class="container mx-auto p-6">
+    <div class="container mx-auto p-4">
         <!-- 系统介绍 -->
-        <div class="hero bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-8">
+        <div class="hero bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6">
             <div class="hero-content text-center">
                 <div class="max-w-2xl">
-                    <h2 class="text-3xl font-bold text-primary mb-4">
+                    <h2 class="text-2xl font-bold text-primary mb-3">
                         <i class="fas fa-cube mr-2"></i>
                         双目三维重建
                     </h2>
-                    <p class="text-lg text-gray-600 mb-6">
+                    <p class="text-base text-gray-600 mb-4">
                         体验完整的双目视觉系统：双目标定、立体校正、视差计算、深度测距和点云显示
                     </p>
                     <div class="flex flex-col sm:flex-row justify-center gap-3">
@@ -75,7 +78,7 @@
         </div>
 
         <!-- 输入与说明 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div class="card bg-base-100 shadow-xl lg:col-span-2">
                 <div class="card-body">
                     <h3 class="card-title text-2xl mb-4">
@@ -172,38 +175,6 @@
                     <div id="middleburyMeasurement" class="bg-gray-50 p-4 rounded-lg mt-6 text-center text-gray-600">
                         点击左侧原图获取视差信息
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 功能特性 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body text-center">
-                    <i class="fas fa-camera text-4xl text-blue-500 mb-4"></i>
-                    <h3 class="card-title justify-center">双目标定</h3>
-                    <p class="text-sm text-gray-600">相机内外参数标定</p>
-                </div>
-            </div>
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body text-center">
-                    <i class="fas fa-adjust text-4xl text-green-500 mb-4"></i>
-                    <h3 class="card-title justify-center">立体校正</h3>
-                    <p class="text-sm text-gray-600">畸变校正和共面行对准</p>
-                </div>
-            </div>
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body text-center">
-                    <i class="fas fa-layer-group text-4xl text-purple-500 mb-4"></i>
-                    <h3 class="card-title justify-center">视差计算</h3>
-                    <p class="text-sm text-gray-600">SGBM算法和WLS滤波</p>
-                </div>
-            </div>
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body text-center">
-                    <i class="fas fa-ruler text-4xl text-red-500 mb-4"></i>
-                    <h3 class="card-title justify-center">深度测距</h3>
-                    <p class="text-sm text-gray-600">精确到毫米级测量</p>
                 </div>
             </div>
         </div>
@@ -307,68 +278,7 @@
                 </div>
             </div>
 
-            <!-- 物体尺寸估计预留区域 -->
-            <div class="card bg-base-100 shadow-xl mb-8">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-video mr-2"></i>
-                        视频物体尺寸估计（预览）
-                    </h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                            <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg h-64 flex items-center justify-center">
-                                <p class="text-gray-500">视频流与估计结果展示区（预留）</p>
-                            </div>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="bg-blue-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-blue-600">目标尺寸</h4>
-                                <p class="text-2xl font-bold text-gray-800">-- cm</p>
-                            </div>
-                            <div class="bg-green-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-green-600">估计距离</h4>
-                                <p class="text-2xl font-bold text-gray-800">-- mm</p>
-                            </div>
-                            <div class="bg-purple-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-purple-600">目标类别</h4>
-                                <p class="text-2xl font-bold text-gray-800">--</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 技术说明 -->
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="card-title text-2xl mb-6">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        技术说明
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h4 class="text-lg font-semibold mb-3 text-blue-600">算法流程</h4>
-                            <ul class="list-disc list-inside space-y-2 text-gray-700">
-                                <li>双目相机标定获取内外参数</li>
-                                <li>立体校正实现共面行对准</li>
-                                <li>SGBM算法计算视差图</li>
-                                <li>WLS滤波优化视差效果</li>
-                                <li>重投影矩阵计算深度信息</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 class="text-lg font-semibold mb-3 text-green-600">精度说明</h4>
-                            <ul class="list-disc list-inside space-y-2 text-gray-700">
-                                <li>理论精度可达毫米级</li>
-                                <li>有效测量距离：0.6-6米</li>
-                                <li>深度误差与距离平方成正比</li>
-                                <li>标定误差需控制在0.1以内</li>
-                                <li>基线长度影响测量范围</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- 可按需扩展更多展示模块 -->
         </div>
     </div>
 

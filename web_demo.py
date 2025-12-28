@@ -142,7 +142,8 @@ class MiddleburyDemo:
     """Middlebury 2006 双目数据集演示（2 views）"""
 
     def __init__(self, data_root="data"):
-        self.data_root = data_root
+        preferred_root = os.path.join(data_root, "two-views")
+        self.data_root = preferred_root if os.path.isdir(preferred_root) else data_root
         self.last_results = {}
 
     def list_scenes(self):
@@ -188,7 +189,9 @@ class MiddleburyDemo:
         return calib
 
     def get_scene_paths(self, scene_name):
-        scene_dir = os.path.join(self.data_root, scene_name)
+        scene_dir = os.path.normpath(os.path.join(self.data_root, scene_name))
+        if not os.path.isdir(scene_dir) and os.path.isdir(scene_name):
+            scene_dir = scene_name
         left_path = os.path.join(scene_dir, "view1.png")
         right_path = os.path.join(scene_dir, "view5.png")
         calib_path = os.path.join(scene_dir, "calib.txt")
