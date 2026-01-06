@@ -117,7 +117,7 @@
                     </div>
                 </div>
                 <p id="captureHint" class="text-sm text-gray-500 mt-3">
-                    抓拍基于实时流；测试视差为单摄像头模拟，仅用于流程验证。
+                    抓拍基于主摄像头实时流；测试视差默认单摄像头模拟。
                 </p>
             </div>
         </div>
@@ -251,21 +251,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-semibold text-blue-600 mb-2">实时画面</h3>
-                        <div class="image-container">
-                            <img id="cameraStream" class="w-full rounded-lg shadow-md border-2 border-blue-200" alt="摄像头实时画面">
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-green-600 mb-2">抓拍结果</h3>
-                        <div class="image-container">
-                            <img id="captureImage" class="w-full rounded-lg shadow-md border-2 border-green-200" alt="抓拍图像">
-                        </div>
-                        <p id="captureHint" class="text-sm text-gray-500 mt-2">点击“抓拍当前帧”保存画面。</p>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -367,12 +352,73 @@
             runProcess(true);
         });
 
+        // 显示提示消息
+        function showAlert(type, message) {
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert ${alertClass} fixed top-4 right-4 w-auto max-w-md z-50`;
+            alertDiv.innerHTML = `
+                <i class="fas ${icon}"></i>
+                <span>${message}</span>
+            `;
+
+            document.body.appendChild(alertDiv);
+
+            // 3秒后移除提示
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
+        }
+
         function setButtonLoading(isLoading) {
             const btn = document.getElementById('processBtn');
             btn.disabled = isLoading;
             btn.innerHTML = isLoading
                 ? '<span class="loading loading-spinner loading-sm mr-2"></span>处理中...'
                 : '<i class="fas fa-play mr-2"></i>开始演示';
+        }
+
+        function runProcess(shouldAlert) {
+            setButtonLoading(true);
+
+            const leftFile = leftUpload.files[0];
+            const rightFile = rightUpload.files[0];
+
+            let url = '/process';
+            let fetchOptions = { method: 'POST' };
+
+            if (leftFile && rightFile) {
+                const formData = new FormData();
+                formData.append('left_image', leftFile);
+                formData.append('right_image', rightFile);
+                url = '/upload_process';
+                fetchOptions.body = formData;
+            }
+
+            fetch(url, fetchOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateResults(data);
+                        if (shouldAlert) {
+                            showAlert('success', data.message || '处理完成');
+                        }
+                    } else {
+                        if (shouldAlert) {
+                            showAlert('error', data.message || '处理失败');
+                        }
+                    }
+                })
+                .catch(error => {
+                    if (shouldAlert) {
+                        showAlert('error', '处理失败: ' + error.message);
+                    }
+                })
+                .finally(() => {
+                    setButtonLoading(false);
+                });
         }
 
         function updateResults(data) {
@@ -384,27 +430,6 @@
             document.getElementById('depthImg').src = data.images.depth;
 
             cameraStream.src = '/camera/stream';
-
-            captureBtn.addEventListener('click', () => {
-                fetch('/camera/capture', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            captureImage.src = data.image;
-                            captureHint.textContent = '抓拍成功';
-                        } else {
-                            showAlert('error', data.message);
-                        }
-                    })
-                    .catch(error => {
-                        showAlert('error', '抓拍失败: ' + error.message);
-                    });
-            });
 
             // 获取深度信息
             function getDepthInfo(x, y, displayX, displayY, imgElement) {
@@ -458,35 +483,15 @@
                         showAlert('error', '获取深度信息失败: ' + error.message);
                     });
             }
-
-            // 显示提示消息
-            function showAlert(type, message) {
-                const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
-                const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-
-                const alertDiv = document.createElement('div');
-                alertDiv.className = `alert ${alertClass} fixed top-4 right-4 w-auto max-w-md z-50`;
-                alertDiv.innerHTML = `
-                <i class="fas ${icon}"></i>
-                <span>${message}</span>
-            `;
-
-                document.body.appendChild(alertDiv);
-
-                // 3秒后移除提示
-                setTimeout(() => {
-                    alertDiv.remove();
-                }, 3000);
-            }
-
-            window.addEventListener('DOMContentLoaded', () => {
-                if (cameraStream) {
-                    cameraStream.src = '/camera/stream';
-                }
-                runProcess(true);
-                captureHint.textContent = '点击“抓拍当前帧”保存画面。';
-            });
         }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (cameraStream) {
+                cameraStream.src = '/camera/stream';
+            }
+            runProcess(true);
+            captureHint.textContent = '点击“抓拍当前帧”保存画面。';
+        });
     </script>
 </body>
 </html>
